@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const { sequelize } = require('./models');
 
 const app = express();
-app.set('port', process.env.PORT || 3000);
+app.set('port', process.env.PORT || 3306);
 
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));

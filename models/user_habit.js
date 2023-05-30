@@ -3,8 +3,8 @@ const Sequelize = require("sequelize");
 class UserHabit extends Sequelize.Model {
     static initiate(sequelize){
         UserHabit.init({
-            Habit_ID: {
-                type: Sequelize.INTEGER,
+            HABIT_ID: {
+                type: Sequelize.INTEGER.UNSIGNED,
                 allowNull: false,
                 primaryKey: true,
                 autoIncrement: true
@@ -51,15 +51,15 @@ class UserHabit extends Sequelize.Model {
             sequelize,
             timestamps: false,
             underscored: false,
-            modelName: "User_habit",
-            tableName: "users_habit",
+            modelName: "Userhabit",
+            tableName: "User_habit",
             paranoid: true,
             charset: "utf8",
             collate: 'utf8_general_ci',
         });
     }
     static associate(db){
-        db.UserHabit.belongsTo(db.User,{foreignKey:'User_ID', targetKey:"USER_ID"});
+        db.UserHabit.belongsTo(db.User,{foreignKey:'USER_ID', targetKey:"USER_ID"});
     }
 };
 
