@@ -3,8 +3,8 @@
     "username": "admin",
     "password": "prototype2359@",
     "database": "nodejs",
-    "host": "192.168.0.21",
-    "port": "3306",
+    "host": "110.10.191.92",
+    "port": "10000",
     "dialect": "mysql"
   },
 
