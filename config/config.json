@@ -1,6 +1,7 @@
 {
   "development": {
     "username": "root",
+    "password": null,
     "database": "nodejs",
     "host": "34.64.158.19",
     "port": "3306",
@@ -10,16 +11,18 @@
   "test": {
     "username": "root",
     "password": null,
-    "database": "database_test",
-    "host": "127.0.0.1",
+    "database": "nodejs",
+    "host": "34.64.158.19",
+    "port": "3306",
     "dialect": "mysql"
   },
 
   "production": {
     "username": "root",
     "password": null,
-    "database": "database_production",
-    "host": "localhost",
+    "database": "nodejs",
+    "host": "34.64.158.19",
+    "port": "3306",
     "dialect": "mysql"
   }
 }
