@@ -22,7 +22,7 @@ app.post('/user', (req, res) => {
       })
       .catch((err) => {
         console.error('Failed to execute query:', err);
-        res.status(500).send('Internal Server Error');
+        res.status(501).send('Internal Server Error');
       });
 });
 
@@ -43,13 +43,13 @@ app.post('/user/habit', (req, res) => {
           })          
           .catch((err) => {
             console.error('Failed to execute query:', err);
-            res.status(500).send('Internal Server Error');
+            res.status(502).send('Internal Server Error');
           });
       }
     })
       .catch((err) => {
         console.error('Failed to execute query:', err);
-        res.status(500).send('Internal Server Error');
+        res.status(503).send('Internal Server Error');
       });
 });
 
