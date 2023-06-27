@@ -3,9 +3,9 @@
     "username": "root",
     "password": "prototype2359@",
     "database": "nodejs",
-    "host": "34.64.158.19",
-    "port": "3306",
-    "dialect": "mysql"
+    "host": "localhost",
+    "dialect": "mysql",
+    "charset": "utf8mb4"
   },
 
   "test": {
@@ -14,7 +14,8 @@
     "database": "nodejs",
     "host": "34.64.158.19",
     "port": "3306",
-    "dialect": "mysql"
+    "dialect": "mysql",
+    "charset": "utf8mb4"
   },
 
   "production": {
@@ -23,6 +24,7 @@
     "database": "nodejs",
     "host": "34.64.158.19",
     "port": "3306",
-    "dialect": "mysql"
+    "dialect": "mysql",
+    "charset": "utf8mb4"
   }
 }

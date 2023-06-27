@@ -13,9 +13,10 @@ app.use(express.urlencoded({ extended: false }));
 
 app.post('/user', (req, res) => {
     const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus } = req.body;
-    // MySQL 쿼리 실행
-    const query = `INSERT INTO users (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, ?, ?, ?)`;
-    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus] })
+    const convertAccessDate = new Date(AccessDate);
+
+    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, ?, ?, ?)`;
+    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, convertAccessDatee, AccumulateDate, TreeStatus] })
       .then(() => {
         res.send('Data added successfully');
       })
@@ -25,6 +26,34 @@ app.post('/user', (req, res) => {
       });
 });
 
+app.post('/user/habit', (req, res) => {
+    const { USER_Name, Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
+    const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`
+    sequelize.query(usercheck, { replacements: [USER_Name], type: sequelize.QueryTypes.SELECT})
+    .then((users) => {
+      if(users.length === 0){
+        res.status(400).send('사용자가 존재하지 않습니다.');
+      } else {
+        const USER_ID = users[0].USER_ID;
+
+        const query = `INSERT INTO User_habit ( Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        sequelize.query(query, { replacements: [ Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID] })
+          .then(() => {
+            res.send('Data added successfully');
+          })          
+          .catch((err) => {
+            console.error('Failed to execute query:', err);
+            res.status(500).send('Internal Server Error');
+          });
+      }
+    })
+      .catch((err) => {
+        console.error('Failed to execute query:', err);
+        res.status(500).send('Internal Server Error');
+      });
+});
+
+
 app.use((req, res, next) => {
   const error = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
   error.status = 404;
@@ -33,7 +62,7 @@ app.use((req, res, next) => {
 
 app.use((err, req, res, next) => {
   res.locals.message = err.message;
-  res.locals.error = process.env.NODE_ENV !== 'production' ? err : {};
+  res.locals.error = process.env.NODE_ENV !== 'development' ? err : {};
   res.status(err.status || 500).send(err.message);
 });
 
