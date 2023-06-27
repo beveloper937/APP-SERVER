@@ -16,7 +16,7 @@ app.post('/user', (req, res) => {
     const convertAccessDate = new Date(AccessDate);
 
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, ?, ?, ?)`;
-    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, convertAccessDatee, AccumulateDate, TreeStatus] })
+    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, convertAccessDate, AccumulateDate, TreeStatus] })
       .then(() => {
         res.send('Data added successfully');
       })
@@ -52,7 +52,6 @@ app.post('/user/habit', (req, res) => {
         res.status(503).send('Internal Server Error');
       });
 });
-
 
 app.use((req, res, next) => {
   const error = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
