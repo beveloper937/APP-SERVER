@@ -35,9 +35,10 @@ app.post('/user/habit', (req, res) => {
         res.status(400).send('사용자가 존재하지 않습니다.');
       } else {
         const USER_ID = users[0].USER_ID;
+        const convertDate = new Date(Date);
 
         const query = `INSERT INTO User_habit ( Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        sequelize.query(query, { replacements: [ Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID] })
+        sequelize.query(query, { replacements: [ Title, StartTime, EndTime, Day, convertDate, Accumulate, Success, Fail, USER_ID] })
           .then(() => {
             res.send('Data added successfully');
           })          
