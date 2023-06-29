@@ -13,6 +13,14 @@ class UserHabit extends Sequelize.Model {
                 type: Sequelize.STRING(45),
                 allowNull: false
             },
+            Schedule: {
+                type: Sequelize.BOOLEAN,
+                allowNull: false
+            },
+            Color: {
+                type: Sequelize.STRING(45),
+                allowNull: false
+            },
             StartTime: {
                 type: Sequelize.STRING,
                 allowNull: true,

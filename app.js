@@ -27,7 +27,7 @@ app.post('/user', (req, res) => {
 });
 
 app.post('/user/habit', (req, res) => {
-    const { USER_Name, Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
+    const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
     const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`
     sequelize.query(usercheck, { replacements: [USER_Name], type: sequelize.QueryTypes.SELECT})
     .then((users) => {
@@ -37,8 +37,8 @@ app.post('/user/habit', (req, res) => {
         const USER_ID = users[0].USER_ID;
         const convertDate = new Date(Date);
 
-        const query = `INSERT INTO User_habit ( Title, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        sequelize.query(query, { replacements: [ Title, StartTime, EndTime, Day, convertDate, Accumulate, Success, Fail, USER_ID] })
+        const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        sequelize.query(query, { replacements: [ Title, Schedule, Color, StartTime, EndTime, Day, convertDate, Accumulate, Success, Fail, USER_ID] })
           .then(() => {
             res.send('Data added successfully');
           })          
