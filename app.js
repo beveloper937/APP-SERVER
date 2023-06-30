@@ -29,18 +29,17 @@ app.post('/user', (req, res) => {
 
 app.post('/user/habit', (req, res) => {
     const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
-    const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`
-    sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT})
-    .then((users) => {
+    const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
+    sequelize.query(usercheck, { replacements: [USER_Name], type: sequelize.QueryTypes.SELECT})
+      .then((users) => {
       if(users.length === 0){
         res.status(400).send('사용자가 존재하지 않습니다.');
-      } else {
+      }
+      else {
         const USER_ID = users[0].USER_ID;
-        const InputDate = req.body.Date;         //어플에서 오는 Date를 Date변수에 저장
-        const convertDate = new Date(InputDate); //어플에서 오는 Date는 String타입이기에 변형
 
-        const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        sequelize.query(query, { replacements: [ Title, Schedule, Color, StartTime, EndTime, Day, convertDate, Accumulate, Success, Fail, USER_ID] })
+        const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?)`;
+        sequelize.query(query, { replacements: [ Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID] })
           .then(() => {
             res.send('Data added successfully');
           })
