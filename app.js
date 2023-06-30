@@ -20,9 +20,10 @@ app.post('/user', (req, res) => {
       .then(() => {
         res.send('Data added successfully');
       })
+
       .catch((err) => {
         console.error('Failed to execute query:', err);
-        res.status(501).send('Internal Server Error');
+        res.status(501).send('User INSERT Error');
       });
 });
 
@@ -36,7 +37,8 @@ app.post('/user/habit', (req, res) => {
         res.status(400).send('사용자가 존재하지 않습니다.');
       } else {
         const USER_ID = users[0].USER_ID;
-        const convertDate = new Date(Date);
+        const Date = req.body.Date;         //어플에서 오는 Date를 Date변수에 저장
+        const convertDate = new Date(Date); //어플에서 오는 Date는 String타입이기에 변형
 
         const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         sequelize.query(query, { replacements: [ Title, Schedule, Color, StartTime, EndTime, Day, convertDate, Accumulate, Success, Fail, USER_ID] })
@@ -46,7 +48,7 @@ app.post('/user/habit', (req, res) => {
 
           .catch((err) => {
             console.error('Failed to execute query:', err);
-            res.status(502).send('Internal Server Error');
+            res.status(502).send('User_habit INSERT Error');
           });
       }
     })
