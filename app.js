@@ -30,8 +30,7 @@ app.post('/user', (req, res) => {
 app.post('/user/habit', (req, res) => {
     const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
     const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`
-    sequelize.query(usercheck, { replacements: [USER_Name], type: sequelize.QueryTypes.SELECT})
-
+    sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT})
     .then((users) => {
       if(users.length === 0){
         res.status(400).send('사용자가 존재하지 않습니다.');
