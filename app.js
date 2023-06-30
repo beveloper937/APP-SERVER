@@ -28,32 +28,32 @@ app.post('/user', (req, res) => {
 });
 
 app.post('/user/habit', (req, res) => {
-    const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
-    const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
-    sequelize.query(usercheck, { replacements: [USER_Name], type: sequelize.QueryTypes.SELECT})
-      .then((users) => {
-      if(users.length === 0){
+  const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
+  const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
+  sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
+    .then((users) => {
+      if (users.length === 0) {
         res.status(400).send('사용자가 존재하지 않습니다.');
-      }
-      else {
+      } else {
         const USER_ID = users[0].USER_ID;
 
-        const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?)`;
-        sequelize.query(query, { replacements: [ Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID] })
+        const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?)`;
+        sequelize.query(query, {
+          replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID],
+        })
           .then(() => {
             res.send('Data added successfully');
           })
-
           .catch((err) => {
             console.error('Failed to execute query:', err);
             res.status(502).send('User_habit INSERT Error');
           });
       }
     })
-      .catch((err) => {
-        console.error('Failed to execute query:', err);
-        res.status(503).send('Internal Server Error');
-      });
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(503).send('Internal Server Error');
+    });
 });
 
 app.use((req, res, next) => {
