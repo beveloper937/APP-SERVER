@@ -29,6 +29,8 @@ app.post('/user', (req, res) => {
 
 app.post('/user/habit', (req, res) => {
   const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
+  console.log('Received JSON data:', req.body); // JSON 데이터 출력
+
   const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
   sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
