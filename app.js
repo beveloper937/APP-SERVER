@@ -30,6 +30,7 @@ app.post('/user/habit', (req, res) => {
     const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
     const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`
     sequelize.query(usercheck, { replacements: [USER_Name], type: sequelize.QueryTypes.SELECT})
+
     .then((users) => {
       if(users.length === 0){
         res.status(400).send('사용자가 존재하지 않습니다.');
@@ -37,11 +38,12 @@ app.post('/user/habit', (req, res) => {
         const USER_ID = users[0].USER_ID;
         const convertDate = new Date(Date);
 
-        const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const query = `INSERT INTO User_habit ( Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         sequelize.query(query, { replacements: [ Title, Schedule, Color, StartTime, EndTime, Day, convertDate, Accumulate, Success, Fail, USER_ID] })
           .then(() => {
             res.send('Data added successfully');
-          })          
+          })
+
           .catch((err) => {
             console.error('Failed to execute query:', err);
             res.status(502).send('Internal Server Error');
