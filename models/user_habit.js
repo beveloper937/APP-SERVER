@@ -18,21 +18,21 @@ class UserHabit extends Sequelize.Model {
                 allowNull: false
             },
             Color: {
-                type: Sequelize.STRING(45),
+                type: Sequelize.INTEGER,
                 allowNull: false
             },
             StartTime: {
                 type: Sequelize.STRING,
                 allowNull: true,
                 validate: {
-                    is: /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/ // HH:MM:SS 형식 유효성 검사
+                    is: /^([01]\d|2[0-3]):([0-5]\d)$/ // HH:MM 형식 유효성 검사
                 }
             },
             EndTime: {
                 type: Sequelize.STRING,
                 allowNull: true,
                 validate: {
-                    is: /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/ 
+                    is: /^([01]\d|2[0-3]):([0-5]\d)$/
                 }
             },
             Day: {
