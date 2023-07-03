@@ -20,7 +20,6 @@ app.post('/user', (req, res) => {   //유저 정보 입력
     sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus] })
       .then(([results]) => {
         const USER_ID = results.insertId;
-        res.send('Data added successfully');
         res.send({USER_ID});
       })
 
@@ -62,6 +61,7 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
       res.status(503).send('Internal Server Error');
     });
 });
+
 ////////////////////////////////////////////////////////////////////////
 
 app.get('/info',(req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
@@ -79,6 +79,7 @@ app.get('/info',(req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
 })
 
 ////////////////////////////////////////////////////////////////////////
+
 app.use((req, res, next) => {
   const error = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
   error.status = 404;
