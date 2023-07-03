@@ -19,7 +19,7 @@ app.post('/user', (req, res) => {   //유저 정보 입력
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
     sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus] })
       .then(([results]) => {
-        const USER_ID = results && results.insertId ? results.insertId : null;
+        const USER_ID = results[0] && results[0]['LAST_INSERT_ID()'];
         res.json({ USER_ID });
       })
 
