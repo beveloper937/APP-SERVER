@@ -11,14 +11,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.post('/user', (req, res) => {
-    const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus } = req.body;
-    const convertAccessDate = new Date(AccessDate);
+////////////////////////////////////////////////////////////////////////
 
-    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, ?, ?, ?)`;
-    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, convertAccessDate, AccumulateDate, TreeStatus] })
-      .then(() => {
+app.post('/user', (req, res) => {   //유저 정보 입력
+    const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus } = req.body;
+
+    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
+    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus] })
+      .then(([results]) => {
+        const USER_ID = results.insertId;
         res.send('Data added successfully');
+        res.send({USER_ID});
       })
 
       .catch((err) => {
@@ -27,11 +30,13 @@ app.post('/user', (req, res) => {
       });
 });
 
-app.post('/user/habit', (req, res) => {
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
   const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
-
   const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
+
   sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
       if (users.length === 0) {
@@ -57,7 +62,23 @@ app.post('/user/habit', (req, res) => {
       res.status(503).send('Internal Server Error');
     });
 });
+////////////////////////////////////////////////////////////////////////
 
+app.get('/info',(req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
+  const { USER_ID } = req.query;
+  const query = `SELECT Color, StartTime, EndTime, Day FROM User_habit WHERE USER_ID = ?`;
+
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
+    .then((results) => {
+      res.json(results);
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(504).send('Internal Server Error');
+    });
+})
+
+////////////////////////////////////////////////////////////////////////
 app.use((req, res, next) => {
   const error = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
   error.status = 404;
@@ -74,7 +95,7 @@ app.listen(app.get('port'), () => {
   console.log(app.get('port'), '번 포트에서 대기 중');
 });
 
-sequelize.sync({ force: false })
+sequelize.sync({ force: false })    //데이터베이스 동기화
   .then(() => {
     console.log('데이터베이스 동기화 완료.');
   })

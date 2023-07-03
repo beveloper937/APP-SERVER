@@ -20,9 +20,9 @@
 
   "production": {
     "username": "root",
-    "password": "prototype2359@",
+    "password": "nodesql937@",
     "database": "nodejs",
-    "host": "34.64.158.19",
+    "host": "34.22.94.68",
     "port": "3306",
     "dialect": "mysql",
     "charset": "utf8mb4"
