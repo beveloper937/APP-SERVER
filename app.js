@@ -19,16 +19,8 @@ app.post('/user', (req, res) => {   //유저 정보 입력
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
     sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus] })
       .then(([results]) => {
-        const getUserID = () => {
-          return new Promise((resolve, reject) => {
-            resolve(results.insertId);
-          });
-        };
-  
-        getUserID()
-          .then((USER_ID) => {
-            res.send({ USER_ID });
-          });
+        const USER_ID = results[0].insertId;
+        res.json({USER_ID});
       })
 
       .catch((err) => {
