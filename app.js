@@ -35,6 +35,27 @@ app.post('/user', (req, res) => {   //유저 정보 입력
 
 ////////////////////////////////////////////////////////////////////////
 
+app.post('/login', (req, res) => {
+  const { USER_Email, USER_Password } = req.body;
+  const query = `SELECT USER_ID FROM User WHERE USER_Email = ? AND USER_Password = ?`;
+
+  sequelize.query(query, { replacements: [USER_Email, USER_Password], type: sequelize.QueryTypes.SELECT })
+    .then((users) => {
+      if (users.length > 0) {
+        const USER_ID = users[0].USER_ID;
+        res.json({ authenticated: true, USER_ID });
+      } else {
+        res.json({ authenticated: false });
+      }
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
+////////////////////////////////////////////////////////////////////////
+
 app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
   const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Success, Fail } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
@@ -70,7 +91,7 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
 
 app.get('/info',(req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT Color, StartTime, EndTime, Day FROM User_habit WHERE USER_ID = ?`;
+  const query = `SELECT Title, Color, StartTime, EndTime, Day FROM User_habit WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
