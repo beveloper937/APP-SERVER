@@ -90,11 +90,11 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/renewal', (req, res) => {
-  const { User_ID, Title, isSuccess } = req.body;
+  const { USER_ID, Title, isSuccess } = req.body;
 
-  const findQuery = `SELECT * FROM User_habit WHERE User_ID = ? AND Title = ?`;
+  const findQuery = `SELECT * FROM User_habit WHERE USER_ID = ? AND Title = ?`;
 
-  sequelize.query(findQuery, { replacements: [User_ID, Title], type: sequelize.QueryTypes.SELECT })
+  sequelize.query(findQuery, { replacements: [USER_ID, Title], type: sequelize.QueryTypes.SELECT })
     .then((habits) => {
       if (habits.length === 0) {
         res.status(404).send('Habit not found');
@@ -103,17 +103,17 @@ app.post('/renewal', (req, res) => {
         const { Accumulate, Daily, Success, Fail } = habit;
 
         // Accumulate 값 1 증가
-        const updateAccumulateQuery = `UPDATE User_habit SET Accumulate = Accumulate + 1 WHERE User_ID = ? AND Title = ?`;
-        sequelize.query(updateAccumulateQuery, { replacements: [User_ID, Title] })
+        const updateAccumulateQuery = `UPDATE User_habit SET Accumulate = Accumulate + 1 WHERE USER_ID = ? AND Title = ?`;
+        sequelize.query(updateAccumulateQuery, { replacements: [USER_ID, Title] })
           .then(() => {
             // Daily 값 갱신 (성공: 1, 실패: 0)
             const updateDailyQuery = `UPDATE User_habit SET Daily = ? WHERE User_ID = ? AND Title = ?`;
-            sequelize.query(updateDailyQuery, { replacements: [isSuccess ? 1 : 0, User_ID, Title] })
+            sequelize.query(updateDailyQuery, { replacements: [isSuccess ? 1 : 0, USER_ID, Title] })
               .then(() => {
                 // Success 값 갱신
                 if (isSuccess) {
-                  const updateSuccessQuery = `UPDATE User_habit SET Success = Success + 1 WHERE User_ID = ? AND Title = ?`;
-                  sequelize.query(updateSuccessQuery, { replacements: [User_ID, Title] })
+                  const updateSuccessQuery = `UPDATE User_habit SET Success = Success + 1 WHERE USER_ID = ? AND Title = ?`;
+                  sequelize.query(updateSuccessQuery, { replacements: [USER_ID, Title] })
                     .then(() => {
                       // Success와 Fail 값을 JSON 형식으로 반환
                       res.json({ Success: Success + 1, Fail });
@@ -125,8 +125,8 @@ app.post('/renewal', (req, res) => {
                 }
                 // Fail 값 갱신
                 else {
-                  const updateFailQuery = `UPDATE User_habit SET Fail = Fail + 1 WHERE User_ID = ? AND Title = ?`;
-                  sequelize.query(updateFailQuery, { replacements: [User_ID, Title] })
+                  const updateFailQuery = `UPDATE User_habit SET Fail = Fail + 1 WHERE USER_ID = ? AND Title = ?`;
+                  sequelize.query(updateFailQuery, { replacements: [USER_ID, Title] })
                     .then(() => {
                       // Success와 Fail 값을 JSON 형식으로 반환
                       res.json({ Success, Fail: Fail + 1 });
