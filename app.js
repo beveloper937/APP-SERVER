@@ -68,7 +68,7 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
       } else {
         const USER_ID = users[0].USER_ID;
 
-        const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?)`;
+        const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?)`;
         sequelize.query(query, {
           replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID],
         })
