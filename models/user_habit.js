@@ -47,12 +47,16 @@ class UserHabit extends Sequelize.Model {
                 type: Sequelize.INTEGER.UNSIGNED,
                 allowNull: true
             },
+            Daily: {
+                type: Sequelize.BOOLEAN,
+                allowNull: true
+            },
             Success: {
-                type: Sequelize.DataTypes.FLOAT,
-                allowNull:true
+                type: Sequelize.INTEGER.UNSIGNED,
+                allowNull: true
             },
             Fail: {
-                type: Sequelize.DataTypes.FLOAT,
+                type: Sequelize.INTEGER.UNSIGNED,
                 allowNull: true
             }
         },{

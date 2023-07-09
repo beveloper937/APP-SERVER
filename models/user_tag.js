@@ -3,7 +3,13 @@ const Sequelize = require("sequelize");
 class UserTag extends Sequelize.Model {
   static initiate(sequelize) {
     UserTag.init({
-        Tag: {
+      UT_ID: {
+        type: Sequelize.INTEGER.UNSIGNED,
+        allowNull: false,
+        primaryKey: true,
+        autoIncrement: true
+      },  
+      Tag: {
           type: Sequelize.STRING(255),
           allowNull: true,
         },
