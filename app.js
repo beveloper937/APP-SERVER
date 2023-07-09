@@ -137,7 +137,7 @@ app.post('/renewal', (req, res) => {
 
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT Title, Color, StartTime, EndTime, Day FROM User_habit WHERE USER_ID = ?`;
+  const query = `SELECT HABIT_ID, Title, Color, StartTime, EndTime, Day FROM User_habit WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
