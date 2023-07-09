@@ -69,26 +69,33 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
         const USER_ID = users[0].USER_ID;
 
         const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?)`;
-        sequelize.query(query, { replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID] })
+        sequelize.query(query, {
+          replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID],
+        })
           .then(() => {
             const selectQuery = `SELECT LAST_INSERT_ID() as HABIT_ID`;
-            return sequelize.query(selectQuery, { plain: true });
-          })
-          .then((result) => {
-            const HABIT_ID = result.HABIT_ID;
-            res.json({ HABIT_ID });
+            sequelize.query(selectQuery, { plain: true })
+              .then((result) => {
+                const HABIT_ID = result.HABIT_ID;
+                res.json({ HABIT_ID });
+              })
+              .catch((err) => {
+                console.error('Failed to execute query:', err);
+                res.status(504).send('Internal Server Error');
+              });
           })
           .catch((err) => {
             console.error('Failed to execute query:', err);
             res.status(502).send('User_habit INSERT Error');
           });
-        }
+      }
     })
     .catch((err) => {
       console.error('Failed to execute query:', err);
       res.status(503).send('Internal Server Error');
     });
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 
