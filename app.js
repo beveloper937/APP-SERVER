@@ -96,7 +96,7 @@ app.post('/renewal', (req, res) => {
   sequelize.query(updateAccumulateQuery, { replacements: [USER_ID, HABIT_ID] })
     .then(() => {
       if (isSuccess) {
-        const updateSuccessQuery = `UPDATE User_habit SET Success = Success + 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
+        const updateSuccessQuery = `UPDATE User_habit SET Success = Success + 1,  Daily = 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
         sequelize.query(updateSuccessQuery, { replacements: [USER_ID, HABIT_ID] })
           .then(() => {
             res.send('Data updated successfully');
@@ -106,7 +106,7 @@ app.post('/renewal', (req, res) => {
             res.status(501).send('Internal Server Error');
           });
       } else {
-        const updateFailQuery = `UPDATE User_habit SET Fail = Fail + 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
+        const updateFailQuery = `UPDATE User_habit SET Fail = Fail + 1,  Daily = 0 WHERE USER_ID = ? AND HABIT_ID = ?`;
         sequelize.query(updateFailQuery, { replacements: [USER_ID, HABIT_ID] })
           .then(() => {
             res.send('Data updated successfully');
