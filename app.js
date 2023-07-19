@@ -57,7 +57,7 @@ app.post('/login', (req, res) => {    //로그인 기능
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
-  const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail } = req.body;
+  const { USER_Name, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
   const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
 
@@ -68,9 +68,9 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
       } else {
         const USER_ID = users[0].USER_ID;
 
-        const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?)`;
+        const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
         sequelize.query(query, {
-          replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, USER_ID],
+          replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess, USER_ID],
         })
           .then(() => {
             const selectQuery = `SELECT LAST_INSERT_ID() as HABIT_ID`;
