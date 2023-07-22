@@ -61,7 +61,7 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
   const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
 
-  sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
+  sequelize.query(usercheck, { replacements: [`${USER_Name}`], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
       if (users.length === 0) {
         res.status(400).send('사용자가 존재하지 않습니다.');
@@ -163,7 +163,7 @@ app.post('/user/find', (req, res) => {   //친구 찾기
   sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
       if (users.length === 0) {
-        res.status(400).send('사용자가 존재하지 않습니다.');
+        res.status(404).send('사용자가 존재하지 않습니다.');
       } else {
         res.json(users);
       }
