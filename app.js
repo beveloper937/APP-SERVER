@@ -156,6 +156,36 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
 
 ////////////////////////////////////////////////////////////////////////
 
+app.post('/user/find', (req, res) => {   // 친구 찾기
+  const { USER_Name } = req.body;
+  const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
+
+  // Sequelize를 이용하여 유저 검색
+  User.findAll({
+    where: {
+      USER_Name: {
+        [Sequelize.Op.like]: `%${USER_Name}%`
+      }
+    },
+    attributes: ['USER_ID', 'USER_Name'], // 검색 결과에서 USER_ID와 USER_Name만 선택
+    raw: true // JSON 형식으로 반환하기 위해 raw 옵션 설정
+  })
+  .then(users => {
+    if (users.length === 0) {
+      res.status(404).send('유저를 찾을 수 없습니다.');
+    } else {
+      res.json(users); // 검색 결과를 JSON 형식으로 클라이언트에게 반환
+    }
+  })
+  .catch(err => {
+    console.error('Failed to execute query:', err);
+    res.status(500).send('Internal Server Error');
+  });
+});
+
+
+////////////////////////////////////////////////////////////////////////
+
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
   const query = `SELECT HABIT_ID, Title, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
