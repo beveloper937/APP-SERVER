@@ -137,7 +137,7 @@ app.post('/renewal', (req, res) => {
 
 app.post('/user/target', (req, res) => {    //목표 수정 기능
   const { USER_ID, HABIT_ID, TargetDate, TargetSuccess } = req.body;
-  const query = `UPDATE User_habit SET TargetDate = ?, TaergetSuccess = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
+  const query = `UPDATE User_habit SET TargetDate = ?, TargetSuccess = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
 
   sequelize.query(query, { replacements: [TargetDate, TargetSuccess, USER_ID, HABIT_ID] })
     .then((result) => {
