@@ -140,8 +140,8 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
   const query = `UPDATE User_habit SET TargetDate = ?, TargetSuccess = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
 
   sequelize.query(query, { replacements: [TargetDate, TargetSuccess, USER_ID, HABIT_ID] })
-    .then((result) => {
-      const rowsUpdated = result[0].affectedRows;
+    .then(([result]) => {
+      const rowsUpdated = result.affectedRows;
       if (rowsUpdated > 0) {
         res.json({ updated: true, rowsUpdated });
       } else {
