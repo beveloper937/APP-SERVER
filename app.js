@@ -135,6 +135,27 @@ app.post('/renewal', (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////
 
+app.post('/user/target', (req, res) => {    //목표 수정 기능
+  const { USER_ID, HABIT_ID, TargetDate, TargetSuccess } = req.body;
+  const query = `UPDATE User_habit SET TargetDate = ?, TaergetSuccess = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
+
+  sequelize.query(query, { replacements: [TargetDate, TargetSuccess, USER_ID, HABIT_ID] })
+    .then((result) => {
+      const rowsUpdated = result[0].affectedRows;
+      if (rowsUpdated > 0) {
+        res.json({ updated: true, rowsUpdated });
+      } else {
+        res.json({ updated: false, rowsUpdated });
+      }
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
+////////////////////////////////////////////////////////////////////////
+
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
   const query = `SELECT HABIT_ID, Title, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
