@@ -156,24 +156,23 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/user/find', (req, res) => {   // 친구 찾기
+app.post('/user/find', (req, res) => {   //친구 찾기
   const { USER_Name } = req.body;
   const usercheck = `SELECT USER_Name, USER_ID FROM User WHERE USER_Name LIKE ?`;
 
   sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
-  .then(users => {
-    if (users.length === 0) {
-      res.status(404).send('유저를 찾을 수 없습니다.');
-    } else {
-      res.json(users); // 검색 결과를 JSON 형식으로 클라이언트에게 반환
-    }
-  })
-  .catch(err => {
-    console.error('Failed to execute query:', err);
-    res.status(500).send('Internal Server Error');
-  });
+    .then((users) => {
+      if (users.length === 0) {
+        res.status(400).send('사용자가 존재하지 않습니다.');
+      } else {
+        res.json(users);
+      }
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(503).send('Internal Server Error');
+    });
 });
-
 
 ////////////////////////////////////////////////////////////////////////
 
