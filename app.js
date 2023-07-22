@@ -159,7 +159,8 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
 app.post('/user/find', (req, res) => {   //친구 찾기
   const { USER_Name } = req.body;
   const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
-
+  console.log('Received JSON data:', req.body); // JSON 데이터 출력
+  
   sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
       if (users.length === 0) {
