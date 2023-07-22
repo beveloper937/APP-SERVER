@@ -2,8 +2,6 @@ const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 const { sequelize } = require('./models');
-const User = require('./models/user');
-const { Op } = require('sequelize');
 
 const app = express();
 app.set('port', process.env.PORT || 10000);
@@ -160,18 +158,9 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
 
 app.post('/user/find', (req, res) => {   // 친구 찾기
   const { USER_Name } = req.body;
-  const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
+  const usercheck = `SELECT USER_Name, USER_ID FROM User WHERE USER_Name LIKE ?`;
 
-  // Sequelize를 이용하여 유저 검색
-  User.findAll({
-    where: {
-      USER_Name: {
-        [Sequelize.Op.like]: `%${USER_Name}%`
-      }
-    },
-    attributes: ['USER_ID', 'USER_Name'], // 검색 결과에서 USER_ID와 USER_Name만 선택
-    raw: true // JSON 형식으로 반환하기 위해 raw 옵션 설정
-  })
+  sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
   .then(users => {
     if (users.length === 0) {
       res.status(404).send('유저를 찾을 수 없습니다.');
