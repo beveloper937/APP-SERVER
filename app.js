@@ -158,7 +158,7 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
 
 app.post('/user/find', (req, res) => {   //친구 찾기
   const { USER_Name } = req.body;
-  const usercheck = `SELECT USER_Name, USER_ID FROM User WHERE USER_Name LIKE ?`;
+  const usercheck = `SELECT * FROM User WHERE USER_Name LIKE ?`;
 
   sequelize.query(usercheck, { replacements: [`%${USER_Name}%`], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
