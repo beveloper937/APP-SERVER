@@ -9,6 +9,10 @@ class Follow extends Sequelize.Model {
             primaryKey: true,
             autoIncrement: true
           },
+          Target_ID: {
+            type: Sequelize.INTEGER(45),
+            allowNull: false
+          },
           Target_Name: {
             type: Sequelize.STRING(45),
             allowNull: false
