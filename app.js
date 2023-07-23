@@ -179,6 +179,7 @@ app.post('/user/find', (req, res) => {   //친구 찾기
 
 app.post('/user/fol', (req, res) => {
   const { USER_ID, FOL_ID, FOL_Name, DELETE } = req.body;
+  console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
   if (DELETE === 0) {
     // 친구를 추가하는 경우
@@ -209,10 +210,6 @@ app.post('/user/fol', (req, res) => {
     res.status(400).send('잘못된 DELETE 속성 값입니다');
   }
 });
-
-////////////////////////////////////////////////////////////////////////
-
-
 
 ////////////////////////////////////////////////////////////////////////
 
