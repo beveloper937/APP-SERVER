@@ -177,6 +177,45 @@ app.post('/user/find', (req, res) => {   //친구 찾기
 
 ////////////////////////////////////////////////////////////////////////
 
+app.post('/user/fol', (req, res) => {
+  const { USER_ID, FOL_ID, FOL_Name, DELETE } = req.body;
+
+  if (DELETE === 0) {
+    // 친구를 추가하는 경우
+    const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name) VALUES (?, ?, ?)`;
+    connection.query(addFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
+      if (err) {
+        console.error('친구 추가에 실패했습니다:', err);
+        res.status(500).send('친구 추가에 실패했습니다');
+      } else {
+        res.json({ addedFriend: FOL_Name });
+      }
+    });
+  } 
+  else if (DELETE === 1) {
+    // 친구를 삭제하는 경우
+    const deleteFriendQuery = `DELETE FROM Follow WHERE USER_ID = ? AND Target_ID = ? AND Target_Name = ?`;
+    connection.query(deleteFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
+      if (err) {
+        console.error('친구 삭제에 실패했습니다:', err);
+        res.status(500).send('친구 삭제에 실패했습니다');
+      } else if (result.affectedRows > 0) {
+        res.json({ deletedFriend: FOL_Name });
+      } else {
+        res.status(400).send('친구를 찾을 수 없습니다');
+      }
+    });
+  } else {
+    res.status(400).send('잘못된 DELETE 속성 값입니다');
+  }
+});
+
+////////////////////////////////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////////////////////////////////
+
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
   const query = `SELECT HABIT_ID, Title, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
