@@ -184,7 +184,7 @@ app.post('/user/fol', (req, res) => {
   if (DELETE === 0) {
     // 친구를 추가하는 경우
     const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name) VALUES (?, ?, ?)`;
-    connection.query(addFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
+    sequelize.query(addFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
       if (err) {
         console.error('친구 추가에 실패했습니다:', err);
         res.status(500).send('친구 추가에 실패했습니다');
@@ -196,7 +196,7 @@ app.post('/user/fol', (req, res) => {
   else if (DELETE === 1) {
     // 친구를 삭제하는 경우
     const deleteFriendQuery = `DELETE FROM Follow WHERE USER_ID = ? AND Target_ID = ? AND Target_Name = ?`;
-    connection.query(deleteFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
+    sequelize.query(deleteFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
       if (err) {
         console.error('친구 삭제에 실패했습니다:', err);
         res.status(500).send('친구 삭제에 실패했습니다');
