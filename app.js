@@ -178,13 +178,13 @@ app.post('/user/find', (req, res) => {   //친구 찾기
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/fol', (req, res) => {
-  const { USER_ID, FOL_ID, FOL_Name, FOL_Date, DELETE } = req.body;
+  const { USER_ID, FOL_ID, FOL_Name, DELETE } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
   if (DELETE === 0) {
     // 친구를 추가하는 경우
-    const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name, Follow_Date VALUES (?, ?, ?, ?)`;
-    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name, FOL_Date] })
+    const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name, Follow_Date) VALUES (?, ?, ?, NOW())`;
+    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
       .then(() => {
         res.json({ addedFriend: FOL_Name });
       })
