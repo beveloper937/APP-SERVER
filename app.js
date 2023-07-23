@@ -184,32 +184,35 @@ app.post('/user/fol', (req, res) => {
   if (DELETE === 0) {
     // 친구를 추가하는 경우
     const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name) VALUES (?, ?, ?)`;
-    sequelize.query(addFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
-      if (err) {
+    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
+      .then(() => {
+        res.json({ addedFriend: FOL_Name });
+      })
+      .catch((err) => {
         console.error('친구 추가에 실패했습니다:', err);
         res.status(500).send('친구 추가에 실패했습니다');
-      } else {
-        res.json({ addedFriend: FOL_Name });
-      }
-    });
+      });
   } 
   else if (DELETE === 1) {
     // 친구를 삭제하는 경우
     const deleteFriendQuery = `DELETE FROM Follow WHERE USER_ID = ? AND Target_ID = ? AND Target_Name = ?`;
-    sequelize.query(deleteFriendQuery, [USER_ID, FOL_ID, FOL_Name], (err, result) => {
-      if (err) {
+    sequelize.query(deleteFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
+      .then((result) => {
+        if (result[0].affectedRows > 0) {
+          res.json({ deletedFriend: FOL_Name });
+        } else {
+          res.status(400).send('친구를 찾을 수 없습니다');
+        }
+      })
+      .catch((err) => {
         console.error('친구 삭제에 실패했습니다:', err);
         res.status(500).send('친구 삭제에 실패했습니다');
-      } else if (result.affectedRows > 0) {
-        res.json({ deletedFriend: FOL_Name });
-      } else {
-        res.status(400).send('친구를 찾을 수 없습니다');
-      }
-    });
+      });
   } else {
     res.status(400).send('잘못된 DELETE 속성 값입니다');
   }
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 
