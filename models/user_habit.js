@@ -61,7 +61,7 @@ class UserHabit extends Sequelize.Model {
             },
             TargetDate: {
                 type: Sequelize.DATE,
-                allowNull: false,
+                allowNull: true,
             },
             TargetSuccess: {
                 type: Sequelize.INTEGER.UNSIGNED,
