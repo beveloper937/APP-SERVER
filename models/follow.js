@@ -35,6 +35,7 @@ class Follow extends Sequelize.Model {
 
   static associate(db) {
     db.Follow.belongsTo(db.User,{foreignKey:'USER_ID', targetKey:'USER_ID'});
+    db.Follow.belongsTo(db.User,{foreignKey:'USER_Name', targetKey:'USER_Name'});
   }
 }
 

@@ -178,13 +178,13 @@ app.post('/user/find', (req, res) => {   //친구 찾기
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/fol', (req, res) => {
-  const { USER_ID, FOL_ID, FOL_Name, DELETE } = req.body;
+  const { USER_ID, USER_Name, FOL_ID, FOL_Name, DELETE } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
   if (DELETE === 0) {
     // 친구를 추가하는 경우
-    const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name, Follow_Date) VALUES (?, ?, ?, NOW())`;
-    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
+    const addFriendQuery = `INSERT INTO Follow (USER_ID, USER_Name, Target_ID, Target_Name, Follow_Date) VALUES (?, ?, ?, ?, NOW())`;
+    sequelize.query(addFriendQuery, { replacements: [USER_ID, USER_Name, FOL_ID, FOL_Name] })
       .then(() => {
         res.json({ addedFriend: FOL_Name });
       })
@@ -231,6 +231,39 @@ app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
 })
 
 ////////////////////////////////////////////////////////////////////////
+
+app.get('/follow', (req, res) => {   ///내가 팔로우한 사람 찾기
+  const { USER_ID } = req.query;
+  const query = `SELECT Target_Name, Target_ID FROM Follow WHERE USER_ID = ?`;
+
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
+    .then((results) => {
+      res.json(results);
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(504).send('Internal Server Error');
+    });
+})
+
+////////////////////////////////////////////////////////////////////////
+
+app.get('/follower', (req, res) => {   ///나를 팔로우한 사람 찾기
+  const { USER_ID } = req.query;
+  const query = `SELECT USER_ID, USER_Name FROM Follow WHERE Target_ID = ?`;
+
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
+    .then((results) => {
+      res.json(results);
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(504).send('Internal Server Error');
+    });
+})
+
+////////////////////////////////////////////////////////////////////////
+
 
 app.use((req, res, next) => {
   const error = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
