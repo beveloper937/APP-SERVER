@@ -12,7 +12,6 @@ class User extends Sequelize.Model {
               USER_Name: {
                 type: Sequelize.STRING(45),
                 allowNull: false,
-                unique: true
               },
               USER_Email: {
                 type: Sequelize.STRING(45),
