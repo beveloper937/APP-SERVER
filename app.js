@@ -184,7 +184,7 @@ app.post('/user/fol', (req, res) => {
   if (DELETE === 0) {
     // 친구를 추가하는 경우
     const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name, Follow_Date) VALUES (?, ?, ?, NOW())`;
-    sequelize.query(addFriendQuery, { replacements: [USER_ID, USER_Name, FOL_ID, FOL_Name] })
+    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
       .then(() => {
         res.json({ addedFriend: FOL_Name });
       })
