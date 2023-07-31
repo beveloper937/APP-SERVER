@@ -22,7 +22,7 @@
     "username": "root",
     "password": "nodesql937@",
     "database": "nodejs",
-    "host": "34.22.94.68",
+    "host": "34.64.148.200",
     "port": "3306",
     "dialect": "mysql",
     "charset": "utf8mb4"
