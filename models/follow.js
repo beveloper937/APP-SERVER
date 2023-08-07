@@ -13,10 +13,6 @@ class Follow extends Sequelize.Model {
             type: Sequelize.INTEGER(45),
             allowNull: false
           },
-          Target_Name: {
-            type: Sequelize.STRING(45),
-            allowNull: false
-          },
           Follow_Date: {
             type: Sequelize.DATE,
             allowNull: false

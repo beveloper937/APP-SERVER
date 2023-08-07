@@ -178,15 +178,15 @@ app.post('/user/find', (req, res) => {   //친구 찾기
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/fol', (req, res) => {
-  const { USER_ID, FOL_ID, FOL_Name, DELETE } = req.body;
+  const { USER_ID, FOL_ID, DELETE } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
   if (DELETE === 0) {
     // 친구를 추가하는 경우
-    const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Target_Name, Follow_Date) VALUES (?, ?, ?, NOW())`;
-    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
+    const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Follow_Date) VALUES (?, ?, NOW())`;
+    sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID] })
       .then(() => {
-        res.json({ addedFriend: FOL_Name });
+        res.json({ message: '친구가 추가되었습니다.' }); // 친구 추가 성공 메세지 전송
       })
       .catch((err) => {
         console.error('친구 추가에 실패했습니다:', err);
@@ -195,11 +195,11 @@ app.post('/user/fol', (req, res) => {
   } 
   else if (DELETE === 1) {
     // 친구를 삭제하는 경우
-    const deleteFriendQuery = `DELETE FROM Follow WHERE USER_ID = ? AND Target_ID = ? AND Target_Name = ?`;
-    sequelize.query(deleteFriendQuery, { replacements: [USER_ID, FOL_ID, FOL_Name] })
+    const deleteFriendQuery = `DELETE FROM Follow WHERE USER_ID = ? AND Target_ID = ?`;
+    sequelize.query(deleteFriendQuery, { replacements: [USER_ID, FOL_ID] })
       .then((result) => {
         if (result[0].affectedRows > 0) {
-          res.json({ deletedFriend: FOL_Name });
+          res.json({ message: '친구목록에서 삭제되었습니다.' }); // 친구 삭제 성공 메세지 전송
         } else {
           res.status(400).send('친구를 찾을 수 없습니다');
         }
