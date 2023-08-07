@@ -234,17 +234,31 @@ app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
 
 app.get('/follow', (req, res) => {   ///내가 팔로우한 사람 찾기
   const { USER_ID } = req.query;
-  const query = `SELECT Target_Name, Target_ID FROM Follow WHERE USER_ID = ?`;
+  const query = `SELECT Target_ID FROM Follow WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
-      res.json(results);
+      // 결과로 받은 Target_ID들을 배열로 추출
+      const targetIDs = results.map(result => result.Target_ID);
+      
+      // User 테이블에서 해당 Target_ID들에 해당하는 USER_Name을 가져오기 위한 쿼리
+      const userQuery = `SELECT USER_ID, USER_Name FROM User WHERE USER_ID IN (?)`;
+      
+      sequelize.query(userQuery, { replacements: [targetIDs], type: sequelize.QueryTypes.SELECT })
+        .then((userResults) => {
+          // userResults에는 USER_ID와 USER_Name이 포함된 결과가 있음
+          res.json(userResults);
+        })
+        .catch((err) => {
+          console.error('Failed to execute user query:', err);
+          res.status(504).send('Internal Server Error');
+        });
     })
     .catch((err) => {
-      console.error('Failed to execute query:', err);
+      console.error('Failed to execute follow query:', err);
       res.status(504).send('Internal Server Error');
     });
-})
+});
 
 ////////////////////////////////////////////////////////////////////////
 
