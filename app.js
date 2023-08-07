@@ -186,7 +186,7 @@ app.post('/user/fol', (req, res) => {
     const addFriendQuery = `INSERT INTO Follow (USER_ID, Target_ID, Follow_Date) VALUES (?, ?, NOW())`;
     sequelize.query(addFriendQuery, { replacements: [USER_ID, FOL_ID] })
       .then(() => {
-        res.json({ addedFriend: FOL_Name });
+        res.json({ message: '친구가 추가되었습니다.' });
       })
       .catch((err) => {
         console.error('친구 추가에 실패했습니다:', err);
@@ -199,7 +199,7 @@ app.post('/user/fol', (req, res) => {
     sequelize.query(deleteFriendQuery, { replacements: [USER_ID, FOL_ID] })
       .then((result) => {
         if (result[0].affectedRows > 0) {
-          res.json({ deletedFriend: FOL_Name });
+          res.json({ message: '친구목록에서 삭제했습니다.' });
         } else {
           res.status(400).send('친구를 찾을 수 없습니다');
         }
