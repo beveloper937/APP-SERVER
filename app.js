@@ -204,10 +204,10 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
-  const { USER_ID, HABIT_ID, TargetSuccess } = req.body;
-  const query = `SELECT Title FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ? AND Success > ?`;
+  const { USER_ID } = req.body;
+  const query = `SELECT Title FROM User_habit WHERE USER_ID = ? AND Success > TargetSuccess`;
 
-  sequelize.query(query, { replacements: [USER_ID, HABIT_ID, TargetSuccess] })
+  sequelize.query(query, { replacements: [USER_ID] })
     .then(([results]) => {
       const successHabits = results.map(result => result.Title);
       res.json(successHabits); // 성공한 습관의 Title들을 보내줌
