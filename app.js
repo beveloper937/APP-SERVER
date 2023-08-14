@@ -156,7 +156,7 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/user/habit/modify', (req, res) => {
+app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
   const { USER_ID, HABIT_ID, ...updatedFields } = req.body;
 
   const updateColumns = Object.keys(updatedFields)
@@ -203,6 +203,23 @@ app.post('/user/habit/modify', (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////
 
+app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
+  const { USER_ID, HABIT_ID, TargetSuccess } = req.body;
+  const query = `SELECT Title FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ? AND Success > ?`;
+
+  sequelize.query(query, { replacements: [USER_ID, HABIT_ID, TargetSuccess] })
+    .then(([results]) => {
+      const successHabits = results.map(result => result.Title);
+      res.json(successHabits); // 성공한 습관의 Title들을 보내줌
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
+////////////////////////////////////////////////////////////////////////
+
 app.post('/user/habit/delete', (req, res) => {    //습관삭제 기능
   const { USER_ID, HABIT_ID } = req.body;
   const query = `DELETE FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`;
@@ -240,7 +257,7 @@ app.post('/user/find', (req, res) => {   //친구 찾기
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/user/fol', (req, res) => {
+app.post('/user/fol', (req, res) => {   //친구 추가,삭제 기능
   const { USER_ID, FOL_ID, DELETE } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
