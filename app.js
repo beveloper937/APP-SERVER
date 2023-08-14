@@ -99,7 +99,7 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/renewal', (req, res) => {
+app.post('/renewal', (req, res) => {      //습관 성공,실패 기록
   const { USER_ID, HABIT_ID, isSuccess } = req.body;
 
   const updateAccumulateQuery = `UPDATE User_habit SET Accumulate = Accumulate + 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
@@ -147,6 +147,69 @@ app.post('/user/target', (req, res) => {    //목표 수정 기능
       } else {
         res.json({ updated: false, rowsUpdated });
       }
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/habit/modify', (req, res) => {
+  const { USER_ID, HABIT_ID, ...updatedFields } = req.body;
+
+  const updateColumns = Object.keys(updatedFields)
+    .filter(col => ['Title', 'Schedule', 'Color', 'StartTime', 'EndTime', 'Day', 'Date', 'Accumulate', 'Daily', 'Success', 'Fail'].includes(col))
+    .map(col => {
+      if (col === 'Date') {
+        return `${col} = STR_TO_DATE(?, '%Y-%m-%d')`;
+      }
+      return `${col} = ?`;
+    })
+    .join(', ');
+
+  if (updateColumns === '') {
+    res.json({ updated: false, rowsUpdated: 0, message: '업데이트할 필드가 없습니다.' });
+    return;
+  }
+
+  const query = `UPDATE User_habit SET ${updateColumns} WHERE USER_ID = ? AND HABIT_ID = ?`;
+
+  const replacements = Object.values(updatedFields).map((value, index) => {
+    if (Object.keys(updatedFields)[index] === 'Date') {
+      return value.replace(" ", "T");
+    }
+    return value;
+  });
+
+  replacements.push(USER_ID, HABIT_ID);
+
+  sequelize.query(query, { replacements })
+    .then(([result]) => {
+      const rowsUpdated = result.affectedRows;
+      if (rowsUpdated > 0) {
+        res.json({ updated: true, rowsUpdated });
+      } else {
+        res.json({ updated: false, rowsUpdated });
+      }
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/habit/delete', (req, res) => {    //습관삭제 기능
+  const { USER_ID, HABIT_ID } = req.body;
+  const query = `DELETE FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`;
+
+  sequelize.query(query, { replacements: [USER_ID, HABIT_ID] })
+    .then(([result]) => {
+      res.json({ message: '습관삭제에 성공했습니다' }); // 습관 삭제 성공 메세지 전송
     })
     .catch((err) => {
       console.error('Failed to execute query:', err);
