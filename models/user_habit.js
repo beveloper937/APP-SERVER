@@ -89,16 +89,16 @@ class UserHabit extends Sequelize.Model {
 module.exports = UserHabit;
 
 // afterCreate 이벤트 리스너 추가
-UserHabit.addHook('afterCreate', 'afterCreateHook', async(userHabit, options) => {
+UserHabit.addHook('afterCreate', async (userHabit, options) => {
     console.log("afterCreate event triggered");
     try {
-      console.log('afterCreate event triggered for UserHabit:', userHabit.toJSON());
-      const extractedNouns = await extractNouns(userHabit.Title);
-      console.log('Extracted nouns:', extractedNouns); // 명사 추출 결과 출력
+        console.log('afterCreate event triggered for UserHabit:', userHabit.toJSON());
+        const extractedNouns = await extractNouns(userHabit.Title);
+        console.log('Extracted nouns:', extractedNouns); // 명사 추출 결과 출력
     } catch (error) {
-      console.error('Error during afterCreate event:', error);
+        console.error('Error during afterCreate event:', error);
     }
-  });
+});
 
 // 명사 추출 함수 정의
 async function extractNouns(text) {
