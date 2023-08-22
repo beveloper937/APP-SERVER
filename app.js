@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 const mecab = require('mecab-ya');
-const { sequelize, UserHabit, UserTag } = require('./models');
+const { sequelize } = require('./models');
 
 const app = express();
 app.set('port', process.env.PORT || 10000);
@@ -383,49 +383,4 @@ sequelize.sync({ force: false })    //데이터베이스 동기화
   .catch((err) => {
     console.error('데이터베이스 동기화 실패:', err);
   });
-
-  ////////////////////////////////////////////////////////////////////////
-
-// 명사 추출 함수 정의
-async function extractNouns(text) {
-  const mecab = new mecab(); // MeCab 객체를 생성합니다.
-  const result = await mecab.nouns(text); // 명사 추출을 수행합니다.
-  return result;
-}
-
-// User_habit 모델에 afterCreate 이벤트 리스너 추가
-UserHabit.addHook('afterCreate', async (userHabit, options) => {
-  try {
-    console.log('afterCreate event triggered for UserHabit:', userHabit.toJSON());
-    const extractedNouns = await extractNouns(userHabit.Title);
-    await processExtractedNouns(extractedNouns, userHabit.USER_ID, userHabit.HABIT_ID);
-  } catch (error) {
-    console.error('Error during afterCreate event:', error);
-  }
-});
-
-// 추출한 명사를 처리하는 함수 정의
-async function processExtractedNouns(nouns, userID, habitID) {
-  try {
-    for (const noun of nouns) {
-      await saveNounToUserTag(userID, habitID, noun);
-    }
-  } catch (error) {
-    console.error('Error during processing extracted nouns:', error);
-  }
-}
-
-// 추출한 명사를 User_Tag 테이블에 저장하는 함수 정의
-async function saveNounToUserTag(userID, habitID, noun) {
-  try {
-    const userTag = await User_Tag.create({
-      USER_ID: userID,
-      HABIT_ID: habitID,
-      Tag: noun,
-    });
-    console.log(`Saved noun "${noun}" to User_Tag:`, userTag.toJSON());
-  } catch (error) {
-    console.error('Error while saving noun to User_Tag:', error);
-  }
-}
 

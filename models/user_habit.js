@@ -95,8 +95,7 @@ async function extractNouns(text) {
     return result;
   }
   
-  // User_habit 모델에 afterCreate 이벤트 리스너 추가
-  UserHabit.addHook('afterCreate', async (userHabit, options) => {
+  UserHabit.addHook('afterCreate', 'afterCreateHook', async (userHabit, options) => {
     try {
       console.log('afterCreate event triggered for UserHabit:', userHabit.toJSON());
       const extractedNouns = await extractNouns(userHabit.Title);
