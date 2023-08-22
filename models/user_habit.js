@@ -1,5 +1,6 @@
 const Sequelize = require("sequelize");
 const User_Tag = require('./user_tag');
+const mecab = require('mecab-ya');
 
 class UserHabit extends Sequelize.Model {
     static initiate(sequelize){
@@ -70,7 +71,7 @@ class UserHabit extends Sequelize.Model {
             }
         },{
             sequelize,
-            hook: {},
+            hooks: {},
             timestamps: false,
             underscored: false,
             modelName: "Userhabit",
@@ -87,7 +88,7 @@ class UserHabit extends Sequelize.Model {
 
 module.exports = UserHabit;
 
-  ////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
 // 명사 추출 함수 정의
 async function extractNouns(text) {
