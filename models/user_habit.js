@@ -70,6 +70,7 @@ class UserHabit extends Sequelize.Model {
             }
         },{
             sequelize,
+            hook: {},
             timestamps: false,
             underscored: false,
             modelName: "Userhabit",
