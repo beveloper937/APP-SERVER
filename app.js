@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 const mecab = require('mecab-ya');
-const { sequelize, User_habit, User_Tag } = require('./models');
+const { sequelize, UserHabit, UserTag } = require('./models');
 
 const app = express();
 app.set('port', process.env.PORT || 10000);
@@ -388,13 +388,13 @@ sequelize.sync({ force: false })    //데이터베이스 동기화
 
 // 명사 추출 함수 정의
 async function extractNouns(text) {
-  const mecab = new MeCab(); // MeCab 객체를 생성합니다.
+  const mecab = new mecab(); // MeCab 객체를 생성합니다.
   const result = await mecab.nouns(text); // 명사 추출을 수행합니다.
   return result;
 }
 
 // User_habit 모델에 afterCreate 이벤트 리스너 추가
-User_habit.addHook('afterCreate', async (userHabit, options) => {
+UserHabit.addHook('afterCreate', async (userHabit, options) => {
   try {
     const extractedNouns = await extractNouns(userHabit.Title);
     await processExtractedNouns(extractedNouns, userHabit.USER_ID, userHabit.HABIT_ID);
