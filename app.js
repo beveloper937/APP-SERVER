@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
-const mecab = require('mecab-async');
+const mecab = require('mecab-ko');
 const { sequelize, User_habit, User_Tag } = require('./models');
 
 const app = express();
@@ -17,17 +17,35 @@ app.use(express.urlencoded({ extended: false }));
 // 명사 추출 함수 정의
 function extractNouns(text) {
   return new Promise((resolve, reject) => {
-    mecab.parse(text, (error, result) => {
-      if (error) {
-        reject(error);
+    mecab.nouns(text, (err, result) => {
+      if (err) {
+        reject(err);
       } else {
-        const nouns = result
-          .filter(token => token[1] === 'NNG' || token[1] === 'NNP') // 일반 명사 또는 고유 명사
-          .map(token => token[0]); // 명사 토큰 추출
-        resolve(nouns);
+        resolve(result);
       }
     });
   });
+}
+
+// User_habit 모델에 afterCreate 이벤트 리스너 추가
+User_habit.addHook('afterCreate', async (userHabit, options) => {
+  try {
+    const extractedNouns = await extractNouns(userHabit.Title);
+    await processExtractedNouns(extractedNouns, userHabit.USER_ID, userHabit.HABIT_ID);
+  } catch (error) {
+    console.error('Error during afterCreate event:', error);
+  }
+});
+
+// 추출한 명사를 처리하는 함수 정의
+async function processExtractedNouns(nouns, userID, habitID) {
+  try {
+    for (const noun of nouns) {
+      await saveNounToUserTag(userID, habitID, noun);
+    }
+  } catch (error) {
+    console.error('Error during processing extracted nouns:', error);
+  }
 }
 
 // 추출한 명사를 User_Tag 테이블에 저장하는 함수 정의
@@ -43,18 +61,6 @@ async function saveNounToUserTag(userID, habitID, noun) {
     console.error('Error while saving noun to User_Tag:', error);
   }
 }
-
-// User_habit 모델에 afterCreate 이벤트 리스너 추가
-User_habit.addHook('afterCreate', async (userHabit, options) => {
-  try {
-    const extractedNouns = await extractNouns(userHabit.Title);
-    for (const noun of extractedNouns) {
-      await saveNounToUserTag(userHabit.USER_ID, userHabit.HABIT_ID, noun);
-    }
-  } catch (error) {
-    console.error('Error during afterCreate event:', error);
-  }
-});
 
 ////////////////////////////////////////////////////////////////////////
 
