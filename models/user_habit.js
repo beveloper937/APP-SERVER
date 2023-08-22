@@ -84,28 +84,7 @@ class UserHabit extends Sequelize.Model {
     static associate(db){
         db.UserHabit.belongsTo(db.User,{foreignKey:'USER_ID', targetKey:"USER_ID"});
     }
-    static addAfterCreateHook() {
-        this.addHook('afterCreate', async (userHabit, options) => {
-            console.log("afterCreate event triggered");
-            try {
-                console.log('afterCreate event triggered for UserHabit:', userHabit.toJSON());
-                const extractedNouns = await extractNouns(userHabit.Title);
-                console.log('Extracted nouns:', extractedNouns); // 명사 추출 결과 출력
-            } catch (error) {
-                console.error('Error during afterCreate event:', error);
-            }
-        });
-    }
-}
+};
+
 
 module.exports = UserHabit;
-
-// 명사 추출 함수 정의
-async function extractNouns(text) {
-    const mecabInstance = new mecab(); // MeCab 객체 생성
-    const result = await mecabInstance.nouns(text); // 명사 추출 수행
-    return result;
-}
-
-// afterCreate 이벤트 리스너 추가
-UserHabit.addAfterCreateHook();
