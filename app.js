@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
-const mecab = require('./node_modules/mecab-ko');
+const mecab = require('mecab-ko');
 const { sequelize, User_habit, User_Tag } = require('./models');
 
 const app = express();
