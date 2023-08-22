@@ -1,7 +1,8 @@
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
-const { sequelize } = require('./models');
+const mecab = require('mecab-async');
+const { sequelize, User_habit, User_Tag } = require('./models');
 
 const app = express();
 app.set('port', process.env.PORT || 10000);
@@ -10,6 +11,50 @@ app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+////////////////////////////////////////////////////////////////////////
+
+// 명사 추출 함수 정의
+function extractNouns(text) {
+  return new Promise((resolve, reject) => {
+    mecab.parse(text, (error, result) => {
+      if (error) {
+        reject(error);
+      } else {
+        const nouns = result
+          .filter(token => token[1] === 'NNG' || token[1] === 'NNP') // 일반 명사 또는 고유 명사
+          .map(token => token[0]); // 명사 토큰 추출
+        resolve(nouns);
+      }
+    });
+  });
+}
+
+// 추출한 명사를 User_Tag 테이블에 저장하는 함수 정의
+async function saveNounToUserTag(userID, habitID, noun) {
+  try {
+    const userTag = await User_Tag.create({
+      USER_ID: userID,
+      HABIT_ID: habitID,
+      Tag: noun,
+    });
+    console.log(`Saved noun "${noun}" to User_Tag:`, userTag.toJSON());
+  } catch (error) {
+    console.error('Error while saving noun to User_Tag:', error);
+  }
+}
+
+// User_habit 모델에 afterCreate 이벤트 리스너 추가
+User_habit.addHook('afterCreate', async (userHabit, options) => {
+  try {
+    const extractedNouns = await extractNouns(userHabit.Title);
+    for (const noun of extractedNouns) {
+      await saveNounToUserTag(userHabit.USER_ID, userHabit.HABIT_ID, noun);
+    }
+  } catch (error) {
+    console.error('Error during afterCreate event:', error);
+  }
+});
 
 ////////////////////////////////////////////////////////////////////////
 
