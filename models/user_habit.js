@@ -86,12 +86,5 @@ class UserHabit extends Sequelize.Model {
     }
 };
 
-UserHabit.addHook('afterCreate', 'afterCreateHook', async (userHabit, options) => {
-    try {
-        console.log('afterCreate event triggered for UserHabit:', userHabit.Title);
-    } catch (error) {
-        console.error('Error during afterCreate event:', error);
-    }
-});
 
 module.exports = UserHabit;
