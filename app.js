@@ -299,7 +299,7 @@ app.post('/user/fol', (req, res) => {   //친구 추가,삭제 기능
 
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT HABIT_ID, Title, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
+  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
