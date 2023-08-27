@@ -86,5 +86,4 @@ class UserHabit extends Sequelize.Model {
     }
 };
 
-
 module.exports = UserHabit;
