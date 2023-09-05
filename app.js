@@ -1,4 +1,3 @@
-process.env.MECAB_LIB_PATH = 'node_modules/mecab-ya/mecab';
 
 const express = require('express');
 const path = require('path');
@@ -62,15 +61,6 @@ app.post('/login', (req, res) => {    //로그인 기능
 app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력 스케줄이 0이면 습관 1이면 일과
   const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body; // 변경된 부분: USER_Name → USER_ID
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
-
-  mecab.nouns(Title, (err, nouns) => {
-    if (err) {
-      console.error('Error extracting nouns:', err);
-      res.status(500).send('Error extracting nouns');
-      return;
-    }
-    console.log('Extracted nouns:', nouns);
-  });
 
   const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
 
