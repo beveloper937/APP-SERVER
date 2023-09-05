@@ -61,15 +61,14 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력 스�
   const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body; // 변경된 부분: USER_Name → USER_ID
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
-  mecab.extractNouns(Title, (err, nouns) => {
+  mecab.nouns(Title, (err, nouns) => {
     if (err) {
       console.error('Error extracting nouns:', err);
       res.status(500).send('Error extracting nouns');
       return;
     }
-
-    // 추출된 명사를 서버에서 보여줄 수 있습니다.
-  console.log('Extracted nouns:', nouns);
+    console.log('Extracted nouns:', nouns);
+  });
 
   const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
 
@@ -92,7 +91,6 @@ app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력 스�
       console.error('Failed to execute query:', err);
       res.status(502).send('User_habit INSERT Error');
     });
-});
 });
 
 ////////////////////////////////////////////////////////////////////////
