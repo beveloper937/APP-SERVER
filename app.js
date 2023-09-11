@@ -286,11 +286,33 @@ app.post('/user/fol', (req, res) => {   //친구 추가,삭제 기능
 
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
+  const query = `
+    SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess, Success, Accumulate, Date
+    FROM User_habit
+    WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
-      res.json(results);
+      const today = new Date(); // 현재 날짜
+      const responseData = results.map((result) => {
+        const { Success, Accumulate, Date, TargetSuccess } = result;
+
+        // Sper (성공률 백분율) 계산
+        const sper = (Success / Accumulate) * 100;
+
+        // 날짜 차이 계산
+        const targetDate = new Date(Date);
+        const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
+
+        // 결과 객체에 추가
+        return {
+          ...result,
+          Sper: sper,
+          DaysSince: daysDiff,
+        };
+      });
+
+      res.json(responseData);
     })
     .catch((err) => {
       console.error('Failed to execute query:', err);
