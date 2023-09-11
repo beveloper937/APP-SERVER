@@ -218,7 +218,7 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
 
 app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
   const { USER_ID } = req.body;
-  const query = `SELECT Title, TargetSuccess, Success, Accumulate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Success > TargetSuccess`;
+  const query = `SELECT Title, TargetSuccess, Success, Accumulate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Success >= TargetSuccess`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
@@ -235,9 +235,9 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
           DaysSince: daysDiff,
         };
       });
-
       res.json(responseData);
     })
+    
     .catch((err) => {
       console.error('Failed to execute query:', err);
       res.status(500).send('Internal Server Error');
