@@ -223,10 +223,9 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
       const responseData = results.map((result) => {
-        const { Success, Accumulate, HabitDate, TargetSuccess, ...rest } = result;
-
+        const today = new Date(); // 현재 날짜
+        const { Success, Accumulate, HabitDate, ...rest } = result;
         const sper = (Success / Accumulate) * 100;
-
         const targetDate = new Date(HabitDate);
         const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
 
