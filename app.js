@@ -236,7 +236,7 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
         };
       });
 
-      res.json({ successData: responseData });
+      res.json(responseData);
     })
     .catch((err) => {
       console.error('Failed to execute query:', err);
