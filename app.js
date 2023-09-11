@@ -15,6 +15,31 @@ app.use(express.urlencoded({ extended: false }));
 
 ////////////////////////////////////////////////////////////////////////
 
+function processInfoData(data) {
+  const today = new Date(); // 현재 날짜
+  const responseData = data.map((result) => {
+    const { Success, Accumulate, HabitDate, TargetSuccess, ...rest } = result; // Success와 Accumulate 열 제외
+
+    // Sper (성공률 백분율) 계산
+    const sper = (Success / Accumulate) * 100;
+
+    // 날짜 차이 계산
+    const targetDate = new Date(HabitDate);
+    const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
+
+    // 결과 객체에 추가
+    return {
+      ...rest, // Success와 Accumulate 열 제외한 열 추가
+      Sper: sper,
+      DaysSince: daysDiff,
+    };
+  });
+
+  return responseData;
+}
+
+////////////////////////////////////////////////////////////////////////
+
 app.post('/user', (req, res) => {   //유저 정보 입력
     const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus } = req.body;
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
@@ -191,31 +216,15 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
 
 ////////////////////////////////////////////////////////////////////////
 
-app.get('/user/habit/success', (req, res) => {
-  const { USER_ID } = req.query;
-  const query = `
-    SELECT Title, Success, Accumulate, HabitDate, TargetSuccess
-    FROM User_habit
-    WHERE USER_ID = ? AND Success > TargetSuccess`;
+app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
+  const { USER_ID } = req.body;
+  const query = `SELECT Title, TargetSuccess, Success, Accumulate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Success > TargetSuccess`;
 
-  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
-    .then((results) => {
-      const responseData = results.map((result) => {
-        const { Success, Accumulate, HabitDate, ...rest } = result;
+  sequelize.query(query, { replacements: [USER_ID] })
+    .then(([results]) => {
+      const successHabits = results.map(result => result.Title);
 
-        const sper = (Success / Accumulate) * 100;
-
-        const targetDate = new Date(HabitDate);
-        const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
-
-        return {
-          ...rest,
-          Sper: sper,
-          DaysSince: daysDiff,
-        };
-      });
-
-      res.json({ successData: responseData });
+      res.json(successHabits); // 성공한 습관의 Title들을 보내줌
     })
     .catch((err) => {
       console.error('Failed to execute query:', err);
