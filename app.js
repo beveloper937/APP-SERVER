@@ -291,11 +291,11 @@ app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
     FROM User_habit
     WHERE USER_ID = ?`;
 
-  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT, raw: true, attributes: { exclude: ['Success', 'Accumulate']} })
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
       const today = new Date(); // 현재 날짜
       const responseData = results.map((result) => {
-        const { Success, Accumulate, HabitDate, TargetSuccess } = result;
+        const { Success, Accumulate, HabitDate, ...res } = result;
 
         // Sper (성공률 백분율) 계산
         const sper = (Success / Accumulate) * 100;
@@ -306,7 +306,7 @@ app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
 
         // 결과 객체에 추가
         return {
-          ...result,
+          ...res,
           Sper: sper,
           DaysSince: daysDiff,
         };
