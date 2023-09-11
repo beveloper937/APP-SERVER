@@ -15,31 +15,6 @@ app.use(express.urlencoded({ extended: false }));
 
 ////////////////////////////////////////////////////////////////////////
 
-function processInfoData(data) {
-  const today = new Date(); // 현재 날짜
-  const responseData = data.map((result) => {
-    const { Success, Accumulate, HabitDate, TargetSuccess, ...rest } = result; // Success와 Accumulate 열 제외
-
-    // Sper (성공률 백분율) 계산
-    const sper = (Success / Accumulate) * 100;
-
-    // 날짜 차이 계산
-    const targetDate = new Date(HabitDate);
-    const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
-
-    // 결과 객체에 추가
-    return {
-      ...rest, // Success와 Accumulate 열 제외한 열 추가
-      Sper: sper,
-      DaysSince: daysDiff,
-    };
-  });
-
-  return responseData;
-}
-
-////////////////////////////////////////////////////////////////////////
-
 app.post('/user', (req, res) => {   //유저 정보 입력
     const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus } = req.body;
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
@@ -227,13 +202,20 @@ app.get('/user/habit/success', (req, res) => {
     .then((results) => {
       const responseData = results.map((result) => {
         const { Success, Accumulate, HabitDate, ...rest } = result;
-        return { ...rest };
+
+        const sper = (Success / Accumulate) * 100;
+
+        const targetDate = new Date(HabitDate);
+        const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
+
+        return {
+          ...rest,
+          Sper: sper,
+          DaysSince: daysDiff,
+        };
       });
 
-      // 이 부분에서 /info 엔드포인트와 동일한 데이터 처리를 추가
-      const infoData = processInfoData(results);
-
-      res.json({ successData: responseData, infoData });
+      res.json({ successData: responseData });
     })
     .catch((err) => {
       console.error('Failed to execute query:', err);
