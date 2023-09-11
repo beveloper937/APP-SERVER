@@ -291,7 +291,7 @@ app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
     FROM User_habit
     WHERE USER_ID = ?`;
 
-  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT, attributes: { exclude: ['Success', 'Accumulate']} })
     .then((results) => {
       const today = new Date(); // 현재 날짜
       const responseData = results.map((result) => {
