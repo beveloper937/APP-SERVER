@@ -1,7 +1,7 @@
 {
   "development": {
     "username": "root",
-    "password": "prototype2359@",
+    "password": "nodesql937@",
     "database": "nodejs",
     "host": "localhost",
     "dialect": "mysql",

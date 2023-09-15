@@ -2,7 +2,6 @@
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
-const mecab = require('mecab-ya');
 const { sequelize } = require('./models');
 
 const app = express();
@@ -12,31 +11,6 @@ app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-////////////////////////////////////////////////////////////////////////
-
-function processInfoData(data) {
-  const today = new Date(); // 현재 날짜
-  const responseData = data.map((result) => {
-    const { Success, Accumulate, HabitDate, TargetSuccess, ...rest } = result; // Success와 Accumulate 열 제외
-
-    // Sper (성공률 백분율) 계산
-    const sper = (Success / Accumulate) * 100;
-
-    // 날짜 차이 계산
-    const targetDate = new Date(HabitDate);
-    const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
-
-    // 결과 객체에 추가
-    return {
-      ...rest, // Success와 Accumulate 열 제외한 열 추가
-      Sper: sper,
-      DaysSince: daysDiff,
-    };
-  });
-
-  return responseData;
-}
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -223,7 +197,7 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
       const responseData = results.map((result) => {
-        const today = new Date(); // 현재 날짜
+        const today = new Date();
         const { Success, Accumulate, HabitDate, ...rest } = result;
         const sper = (Success / Accumulate) * 100;
         const targetDate = new Date(HabitDate);
@@ -237,7 +211,6 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
       });
       res.json(responseData);
     })
-    
     .catch((err) => {
       console.error('Failed to execute query:', err);
       res.status(500).send('Internal Server Error');
@@ -393,7 +366,7 @@ app.use((req, res, next) => {
 
 app.use((err, req, res, next) => {
   res.locals.message = err.message;
-  res.locals.error = process.env.NODE_ENV !== 'production' ? err : {};
+  res.locals.error = process.env.NODE_ENV !== 'development' ? err : {};
   res.status(err.status || 500).send(err.message);
 });
 
