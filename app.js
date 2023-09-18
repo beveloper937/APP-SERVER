@@ -1,4 +1,4 @@
-
+const { Tag, User_tag } = require('./models');
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
@@ -58,45 +58,73 @@ app.post('/login', (req, res) => {    //로그인 기능
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력 스케줄이 0이면 습관 1이면 일과
+app.post('/user/habit', (req, res) => {
   const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
-  const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
+  const query = `
+    INSERT INTO User_habit (
+      Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
+    ) 
+    VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)
+  `;
 
-  const Rate = (Success/Accumulate) * 100 //들어온 습관의 성공률 계산
-  
-  mecab.nouns(Title, function (err, result){
-   if(err){
-     console.error('Failed to extrat nouns:', err);
-     res.status(500).send('Internal Server Error');
-   }else{
-     const extractedNouns = result.join(', ');
-     console.log('ExtractedNouns:', extractedNouns);
-   }
-  });
+  const Rate = (Success / Accumulate) * 100; // 들어온 습관의 성공률 계산
 
+  mecab.nouns(Title, function (err, result) {
+    if (err) {
+      console.error('Failed to extract nouns:', err);
+      res.status(500).send('Internal Server Error');
+    } else {
+      const extractedNouns = result.join(', ');
+      console.log('Extracted Nouns:', extractedNouns);
 
-  sequelize.query(query, {
-    replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID],
-  })
-    .then(() => {
-      const selectQuery = `SELECT LAST_INSERT_ID() as HABIT_ID`;
-      sequelize.query(selectQuery, { plain: true })
-        .then((result) => {
-          const HABIT_ID = result.HABIT_ID;
-          res.json({ HABIT_ID });
+      sequelize.query(query, {
+        replacements: [
+          Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
+        ],
+      })
+        .then(() => {
+          const selectQuery = 'SELECT LAST_INSERT_ID() as HABIT_ID';
+          sequelize.query(selectQuery, { plain: true })
+            .then((result) => {
+              const HABIT_ID = result.HABIT_ID;
+              
+              // 분리된 명사들을 태그로 추가
+              const tags = extractedNouns.split(', ');
+              for (const tag of tags) {
+                const tagQuery = 'INSERT INTO User_tag (USER_ID, HABIT_ID, Tag) VALUES (?, ?, ?)';		//User_tag에 넣는 쿼리문
+		const InsertTag = 'INSERT INTO Tag (Name) SELECT ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM Tag WHERE Name = ?) LIMIT 1';	//Tag에 넣는 쿼리문
+                sequelize.query(tagQuery, { replacements: [USER_ID, HABIT_ID, tag] })
+                  .then(() => {
+                    console.log(`Tag "${tag}" added for HABIT_ID ${HABIT_ID}`);
+                  })
+                  .catch((err) => {
+                    console.error(`Failed to add tag "${tag}" for HABIT_ID ${HABIT_ID}:`, err);
+                  });
+		sequelize.query(InsertTag, {replacements: [tag, tag]})
+		  .then(() => {
+		    console.log(`Tag "${tag} added"`);
+		  })
+		  .catch((err)=>{
+		    console.error(`Failed to add tag "${tag}"`,err);
+		  })
+	      }
+              res.json({ HABIT_ID });
+            })
+            .catch((err) => {
+              console.error('Failed to execute query:', err);
+              res.status(504).send('Internal Server Error');
+            });
         })
         .catch((err) => {
           console.error('Failed to execute query:', err);
-          res.status(504).send('Internal Server Error');
+          res.status(502).send('User_habit INSERT Error');
         });
-    })
-    .catch((err) => {
-      console.error('Failed to execute query:', err);
-      res.status(502).send('User_habit INSERT Error');
-    });
+    }
+  });
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 

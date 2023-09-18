@@ -28,7 +28,7 @@ class UserTag extends Sequelize.Model {
   static associate(db) {
     db.UserTag.belongsTo(db.User,{foreignKey:'USER_ID', targetKey:'USER_ID'});
     db.UserTag.belongsTo(db.UserHabit,{foreignKey:'HABIT_ID', targetKey:'HABIT_ID'});
-  }
+    }
 }
 
 module.exports = UserTag;
