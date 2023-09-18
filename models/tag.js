@@ -15,19 +15,19 @@ class Tag extends Sequelize.Model {
               },
               USER_Count: {
                 type: Sequelize.INTEGER.UNSIGNED,
-                allowNull: false
+                defaultValue: 0
               },
               Habit_Success: {
                 type: Sequelize.FLOAT,
-                allowNull: false
-              },
+                 defaultValue: 0
+	      },
               Habit_Fail: {
                 type: Sequelize.FLOAT,
-                allowNull: false
+                defaultValue: 0
               },
               Time_Average: {
                 type: Sequelize.INTEGER.UNSIGNED,
-                allowNull: false
+                defaultValue: 0
               },
         },{
             sequelize,

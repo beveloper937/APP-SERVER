@@ -55,12 +55,16 @@ class UserHabit extends Sequelize.Model {
             },
             Success: {
                 type: Sequelize.INTEGER.UNSIGNED,
-                allowNull: true
+                defaultValue: 0
             },
             Fail: {
                 type: Sequelize.INTEGER.UNSIGNED,
-                allowNull: true
+                defaultValue: 0
             },
+	    Rate: {
+		type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 0	
+	    },
             TargetDate: {
                 type: Sequelize.DATE,
                 allowNull: true,

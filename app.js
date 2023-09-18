@@ -2,6 +2,7 @@
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
+const mecab = require('mecab-ya');
 const { sequelize } = require('./models');
 
 const app = express();
@@ -58,13 +59,26 @@ app.post('/login', (req, res) => {    //로그인 기능
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/habit', (req, res) => {   //유저의 습관 정보 입력 스케줄이 0이면 습관 1이면 일과
-  const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body; // 변경된 부분: USER_Name → USER_ID
+  const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
   console.log('Received JSON data:', req.body); // JSON 데이터 출력
 
-  const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
+  const query = `INSERT INTO User_habit (Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID) VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
+
+  const Rate = (Success/Accumulate) * 100 //들어온 습관의 성공률 계산
+  
+  mecab.nouns(Title, function (err, result){
+   if(err){
+     console.error('Failed to extrat nouns:', err);
+     res.status(500).send('Internal Server Error');
+   }else{
+     const extractedNouns = result.join(', ');
+     console.log('ExtractedNouns:', extractedNouns);
+   }
+  });
+
 
   sequelize.query(query, {
-    replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess, USER_ID],
+    replacements: [Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID],
   })
     .then(() => {
       const selectQuery = `SELECT LAST_INSERT_ID() as HABIT_ID`;
@@ -192,20 +206,18 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
 
 app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
   const { USER_ID } = req.body;
-  const query = `SELECT Title, TargetSuccess, Success, Accumulate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Success >= TargetSuccess`;
+  const query = `SELECT Title, TargetSuccess, Rate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Rate >= TargetSuccess`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
       const responseData = results.map((result) => {
         const today = new Date();
-        const { Success, Accumulate, HabitDate, ...rest } = result;
-        const sper = (Success / Accumulate) * 100;
+        const { HabitDate, ...rest } = result;
         const targetDate = new Date(HabitDate);
         const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
 
         return {
           ...rest,
-          Sper: sper,
           DaysSince: daysDiff,
         };
       });
