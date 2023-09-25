@@ -32,7 +32,11 @@ class User extends Sequelize.Model {
               TreeStatus: {
                 type: Sequelize.INTEGER.UNSIGNED,
                 allowNull: false
-            }
+            },
+	    Token: {
+		type: Sequelize.STRING,
+		allowNull: false
+	    }
         },{
             sequelize,
             timestamps: false,

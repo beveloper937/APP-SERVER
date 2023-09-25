@@ -3,6 +3,8 @@ const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 const mecab = require('mecab-ya');
+const schedule = require('node-schedule');
+const admin = require('firebase-admin');
 const { sequelize } = require('./models');
 
 const app = express();
@@ -14,12 +16,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 ////////////////////////////////////////////////////////////////////////
+// FCM SDK 초기화
+const serviceAccount = require('/home/ubuntu/nodealarm-7aaf7-firebase-adminsdk-c9akk-a90ef8b816.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+////////////////////////////////////////////////////////////////////////
 
 app.post('/user', (req, res) => {   //유저 정보 입력
-    const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus } = req.body;
-    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
+    const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token } = req.body;
+    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?)`;
 
-    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus] })
+    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token] })
       .then(() => {
         const selectQuery = `SELECT LAST_INSERT_ID() as USER_ID`;
         return sequelize.query(selectQuery, { plain: true });
@@ -68,8 +77,9 @@ app.post('/user/habit', (req, res) => {
     ) 
     VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)
   `;
-
-  const Rate = (Success / Accumulate) * 100; // 들어온 습관의 성공률 계산
+  
+  const Rate = ( ESuccess / EAccumulate) * 100; // 들어온 습관의 성공률 계산
+  const ERate = isNaN(Rate) ? 0 : Rate;
 
   mecab.nouns(Title, function (err, result) {
     if (err) {
@@ -81,7 +91,7 @@ app.post('/user/habit', (req, res) => {
 
       sequelize.query(query, {
         replacements: [
-          Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
+          Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, ERate, TargetDate, TargetSuccess, USER_ID
         ],
       })
         .then(() => {
@@ -94,7 +104,7 @@ app.post('/user/habit', (req, res) => {
               const tags = extractedNouns.split(', ');
               for (const tag of tags) {
                 const tagQuery = 'INSERT INTO User_tag (USER_ID, HABIT_ID, Tag) VALUES (?, ?, ?)';		//User_tag에 넣는 쿼리문
-		const InsertTag = 'INSERT INTO Tag (Name) SELECT ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM Tag WHERE Name = ?) LIMIT 1';	//Tag에 넣는 쿼리문
+		const InsertTag = 'INSERT INTO Tag (Name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM Tag WHERE Name = ?) LIMIT 1';	//Tag에 넣는 쿼리문
                 sequelize.query(tagQuery, { replacements: [USER_ID, HABIT_ID, tag] })
                   .then(() => {
                     console.log(`Tag "${tag}" added for HABIT_ID ${HABIT_ID}`);
