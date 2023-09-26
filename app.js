@@ -4,7 +4,7 @@ const path = require('path');
 const morgan = require('morgan');
 const mecab = require('mecab-ya');
 const schedule = require('node-schedule');
-const admin = require('firebase-admin');
+var admin = require('firebase-admin');
 const { sequelize } = require('./models');
 
 const app = express();
@@ -19,18 +19,44 @@ app.use(express.urlencoded({ extended: false }));
 ////////////////////////////////////////////////////////////////////////
 
 // FCM SDK 초기화
-const serviceAccount = require('/home/ubuntu/nodealarm-7aaf7-firebase-adminsdk-c9akk-a90ef8b816.json');
+var serviceAccount = require('/home/ubuntu/nodealarm-7aaf7-firebase-adminsdk-c9akk-a90ef8b816.json');
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
+////////////////////////////////////////////////////////////////////////
+
+/*app.get('/push', (req, res, next) => {
+  let target_token =
+    'et-DZiGgQHOYRZo4UAsw0R:APA91bFS8wEDMepnm9TEakazZ3lNFdoSZVgUJXSNudqxpWKf3HcLyNuenjC6sb9PTa6ctNBaYkR2UwWmtBTLcuTTHPCWE5cK4zOxeaJgHvSXA5RQKEtzuKgwf2Xog3drtHGihvlTMgrH'
+
+  let message = {
+    data: {
+      title: '푸시알림 테스트',
+      body: '푸시알림 테스트합니다.',
+      style: '테스트',
+    },
+    token: target_token,
+  }
+
+  admin
+    .messaging()
+    .send(message)
+    .then(function (response) {
+      console.log('Successfully sent message: : ', response)
+    })
+    .catch(function (err) {
+      console.log('Error Sending message!!! : ', err)
+    })
+})*/
 
 ////////////////////////////////////////////////////////////////////////
 
-schedule.scheduleJob('*/1 * * * *', function () {
+schedule.scheduleJob('*/1 * * * *', async function () {
   // 현재 요일과 시간 구하기
   const now = new Date();
-  const option  = { weekday: 'short', locale: 'ko-KR' }
+  const option = { weekday: 'short', locale: 'ko-KR' }
   const currentDay = now.toLocaleDateString('ko-KR', option); // 요일을 문자열로 얻음
   const currentTime = now.getHours() + ':' + now.getMinutes(); // HH:mm 형식의 현재 시간
 
@@ -39,48 +65,39 @@ schedule.scheduleJob('*/1 * * * *', function () {
     SELECT U.Token, UH.Title
     FROM User_habit AS UH
     INNER JOIN User AS U ON UH.USER_ID = U.USER_ID
-    WHERE (UH.Day LIKE CONCAT('%',?,'%') OR UH.Day = ?) 
+    WHERE (UH.Day LIKE CONCAT('%', ?, '%') OR UH.Day = ?) 
     AND UH.StartTime = ?
   `;
 
-  sequelize.query(query,{replacements: [currentDay, currentDay, currentTime]}, (error, results) => {
-    if (error) {
-      console.error('MySQL Query Error:', error);
-      return;
-    }
+  try {
+    const [results, metadata] = await sequelize.query(query, { replacements: [currentDay, currentDay, currentTime] });
 
     if (results.length === 0) {
       console.log('No matching records found.');
       return;
     }
 
-    // 결과에서 FCM 토큰과 일정 제목 추출
-    const tokens = results.map((row) => row.Token);
-    const titles = results.map((row) => row.Title);
+    for (const result of results) {
+      const token = result.Token;
+      const title = result.Title;
 
-    // FCM 메시지 작성
-    const message = {
-      data: {
-        title: '알림',
-        body: `일정 시작: ${titles.join(', ')}`,
-      },
-      tokens: tokens,
-    };
-    console.log('Message to send:', message);
-    console.log('Tokens to send to:', tokens);
+      // FCM 메시지 작성
+      const message = {
+        data: {
+          title: '알림',
+          body: `일정 시작: ${title}`,
+        },
+        tokens: [token], // 해당 토큰으로 알림을 전송
+      };
 
-    // FCM 알림 전송
-    admin
-      .messaging()
-      .sendMulticast(message)
-      .then((response) => {
-        console.log('Successfully sent message:', response);
-      })
-      .catch((error) => {
-        console.error('Error sending message:', error);
-      });
-  });
+      const response = await admin.messaging().sendMulticast(message);
+      console.log('Successfully sent message:', response);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 
