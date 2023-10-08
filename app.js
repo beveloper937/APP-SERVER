@@ -101,6 +101,48 @@ schedule.scheduleJob('*/1 * * * *', async function () {
 
 ////////////////////////////////////////////////////////////////////////
 
+schedule.scheduleJob('0 0 * * * *', async function (){
+  try {
+    //Tag의 사용자수 파악
+    const [tags] = await sequelize.query(`
+      SELECT TAG_ID, COUNT(DISTINCT USER_ID) as user_count
+      FROM Habit_Tag
+      GROUP BY TAG_ID
+    `);
+    
+    for (const { TAG_ID, user_count } of tags) {
+      await sequelize.query(`
+        UPDATE Tag
+        SET User_Count = ?
+        WHERE TAG_ID = ?
+      `, { replacements: [user_count, TAG_ID] });
+    }
+
+    //Success_Per를 기준으로 순위를 매김
+    await sequelize.query(`
+      SET @rank := 0;
+    `);
+    
+    await sequelize.query(`
+      UPDATE Tag t
+      JOIN (
+        SELECT TAG_ID, (@rank := @rank + 1) AS 'rank'
+        FROM Tag
+        ORDER BY Success_Per DESC
+      ) r
+      ON t.TAG_ID = r.TAG_ID
+      SET t.Rank = r.rank;
+    `);
+
+    console.log('User_Count와 Rank가 업데이트 되었습니다.');
+  } catch (err) {
+    console.error('User_Count와 Rank 업데이트에 실패했습니다.', err);
+  }
+});
+
+
+////////////////////////////////////////////////////////////////////////
+
 app.post('/user', (req, res) => {   //유저 정보 입력
     const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token } = req.body;
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?)`;
@@ -144,78 +186,83 @@ app.post('/login', (req, res) => {    //로그인 기능
 
 ////////////////////////////////////////////////////////////////////////
 
+
 app.post('/user/habit', (req, res) => {
-  const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
-  console.log('Received JSON data:', req.body); // JSON 데이터 출력
+    const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
+    console.log('Received JSON data:', req.body);
 
-  const query = `
-    INSERT INTO User_habit (
-      Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
-    ) 
-    VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)
-  `;
-  
-  const Rate = ( Success / Accumulate) * 100; // 들어온 습관의 성공률 계산
-  const ERate = isNaN(Rate) ? 0 : Rate;
+    const query = `
+        INSERT INTO User_habit (
+            Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
+        ) 
+        VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)
+    `;
+    
+    const Rate = (Success / Accumulate) * 100;
+    const ERate = isNaN(Rate) ? 0 : Rate;
 
-  mecab.nouns(Title, function (err, result) {
-    if (err) {
-      console.error('Failed to extract nouns:', err);
-      res.status(500).send('Internal Server Error');
-    } else {
-      const extractedNouns = result.join(', ');
-      console.log('Extracted Nouns:', extractedNouns);
+    mecab.nouns(Title, function(err, result) {
+        if (err) {
+            console.error('Failed to extract nouns:', err);
+            res.status(500).send('Internal Server Error');
+            return;
+        }
+        const extractedNouns = result.join(', ');
+        console.log('Extracted Nouns:', extractedNouns);
 
-      sequelize.query(query, {
-        replacements: [
-          Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, ERate, TargetDate, TargetSuccess, USER_ID
-        ],
-      })
+        sequelize.query(query, {
+            replacements: [
+                Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, ERate, TargetDate, TargetSuccess, USER_ID
+            ],
+        })
         .then(() => {
-          const selectQuery = 'SELECT LAST_INSERT_ID() as HABIT_ID';
-          sequelize.query(selectQuery, { plain: true })
-            .then((result) => {
-              const HABIT_ID = result.HABIT_ID;
-              
-              // 분리된 명사들을 태그로 추가
-              const tags = extractedNouns.split(', ');
-              for (const tag of tags) {
-                const tagQuery = 'INSERT INTO User_tag (USER_ID, HABIT_ID, Tag) VALUES (?, ?, ?)';		//User_tag에 넣는 쿼리문
-		const InsertTag = 'INSERT INTO Tag (Name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM Tag WHERE Name = ?) LIMIT 1';	//Tag에 넣는 쿼리문
-                sequelize.query(tagQuery, { replacements: [USER_ID, HABIT_ID, tag] })
-                  .then(() => {
-                    console.log(`Tag "${tag}" added for HABIT_ID ${HABIT_ID}`);
-                  })
-                  .catch((err) => {
-                    console.error(`Failed to add tag "${tag}" for HABIT_ID ${HABIT_ID}:`, err);
-                  });
-		sequelize.query(InsertTag, {replacements: [tag, tag]})
-		  .then(() => {
-		    console.log(`Tag "${tag} added"`);
-		  })
-		  .catch((err)=>{
-		    console.error(`Failed to add tag "${tag}"`,err);
-		  })
-	      }
-              res.json({ HABIT_ID });
-            })
-            .catch((err) => {
-              console.error('Failed to execute query:', err);
-              res.status(504).send('Internal Server Error');
+            const selectQuery = 'SELECT LAST_INSERT_ID() as HABIT_ID';
+            return sequelize.query(selectQuery, { plain: true });
+        })
+        .then((result) => {
+            const HABIT_ID = result.HABIT_ID;
+
+            if (Schedule !== 0) {
+                res.json({ HABIT_ID });
+                return;
+            }
+
+            // 분리된 명사들을 태그로 추가
+            const tags = extractedNouns.split(', ');
+
+            return Promise.all(tags.map(tag => {
+                const InsertTag = 'INSERT INTO Tag (Name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM Tag WHERE Name = ?) LIMIT 1';
+
+                return sequelize.query(InsertTag, { replacements: [tag, tag] })
+                    .then(() => {
+                        const selectTagIdQuery = 'SELECT TAG_ID FROM Tag WHERE Name = ? LIMIT 1';
+                        return sequelize.query(selectTagIdQuery, { replacements: [tag], plain: true });
+                    })
+                    .then(tagResult => {
+                        const TAG_ID = tagResult.TAG_ID;
+
+                        const tagQuery = 'INSERT INTO User_tag (USER_ID, HABIT_ID, Tag) VALUES (?, ?, ?)';
+                        return sequelize.query(tagQuery, { replacements: [USER_ID, HABIT_ID, tag] })
+                            .then(() => {
+                                const insertHabitTagQuery = 'INSERT INTO Habit_Tag (USER_ID, HABIT_ID, TAG_ID) VALUES (?, ?, ?)';
+                                return sequelize.query(insertHabitTagQuery, { replacements: [USER_ID, HABIT_ID, TAG_ID] });
+                            });
+                    });
+            }))
+            .then(() => {
+                res.json({ HABIT_ID });
             });
         })
         .catch((err) => {
-          console.error('Failed to execute query:', err);
-          res.status(502).send('User_habit INSERT Error');
+            console.error('Failed to execute query:', err);
+            res.status(502).send('User_habit INSERT Error');
         });
-    }
-  });
+    });
 });
-
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/renewal', (req, res) => {      //습관 성공,실패 기록
+/*app.post('/renewal', (req, res) => {      //습관 성공,실패 기록
   const { USER_ID, HABIT_ID, isSuccess } = req.body;
 
   const updateAccumulateQuery = `UPDATE User_habit SET Accumulate = Accumulate + 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
@@ -247,7 +294,39 @@ app.post('/renewal', (req, res) => {      //습관 성공,실패 기록
       console.error('Failed to update Accumulate:', err);
       res.status(503).send('Internal Server Error');
     });
+});*/
+
+app.post('/renewal', async (req, res) => {
+  const { USER_ID, HABIT_ID, isSuccess } = req.body;
+
+  try {
+    //isSuccess값에 따라 Success나 Fail에 1을 더함
+    const updateQuery = `UPDATE User_habit SET ${isSuccess == 1 ? 'Success' : 'Fail'} = ${isSuccess == 1 ? 'Success' : 'Fail'} + 1,  Daily = ${isSuccess} WHERE USER_ID = ? AND HABIT_ID = ?`;
+    await sequelize.query(updateQuery, { replacements: [USER_ID, HABIT_ID] });
+
+    //Accumulate값 1증가, Rate값 재입력
+    const [[{ Success, Accumulate }]] = await sequelize.query(`SELECT Success, Accumulate FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID] });
+    const Rate = (Success / (Accumulate + 1)) * 100;
+    await sequelize.query(`UPDATE User_habit SET Accumulate = Accumulate + 1, Rate = ? WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [Rate, USER_ID, HABIT_ID] });
+
+    //연관된 Tag에 단체 통계를 위한 값 증가
+    const [tags] = await sequelize.query(`SELECT TAG_ID FROM Habit_Tag WHERE HABIT_ID = ?`, { replacements: [HABIT_ID] });
+    for (const { TAG_ID } of tags) {
+      await sequelize.query(`
+        UPDATE Tag SET
+        Habit_${isSuccess == 1 ? 'Success' : 'Fail'} = Habit_${isSuccess == 1 ? 'Success' : 'Fail'} + 1,
+        Success_Per = (Habit_Success / (Habit_Success + Habit_Fail)) * 100,
+        Fail_Per = (Habit_Fail / (Habit_Success + Habit_Fail)) * 100
+        WHERE TAG_ID = ?`, { replacements: [TAG_ID] });
+    }
+
+    res.send('Data updated successfully');
+  } catch (err) {
+    console.error('Failed to update data:', err);
+    res.status(500).send('Internal Server Error');
+  }
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 

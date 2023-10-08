@@ -29,6 +29,18 @@ class Tag extends Sequelize.Model {
                 type: Sequelize.INTEGER.UNSIGNED,
                 defaultValue: 0
               },
+	      Success_Per: {
+	        type: Sequelize.FLOAT,
+		defaultValue: 0
+	      },
+	      Fail_Per: {
+		type: Sequelize.FLOAT,
+		defaultValue: 0      
+	      },
+	      Rank: {
+	        type: Sequelize.INTEGER.UNSIGNED,
+		allowNull: true
+	      },
         },{
             sequelize,
             timestamps: false,
