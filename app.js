@@ -53,7 +53,8 @@ admin.initializeApp({
 
 ////////////////////////////////////////////////////////////////////////
 
-schedule.scheduleJob('*/1 * * * *', async function () {
+//알림 스케줄
+schedule.scheduleJob('*/1 * * * *', async function () {	
   // 현재 요일과 시간 구하기
   const now = new Date();
   const option = { weekday: 'short', locale: 'ko-KR' }
@@ -101,7 +102,8 @@ schedule.scheduleJob('*/1 * * * *', async function () {
 
 ////////////////////////////////////////////////////////////////////////
 
-schedule.scheduleJob('0 0 * * * *', async function (){
+//통계 정리 스케줄
+schedule.scheduleJob('0 0 0 * * *', async function (){
   try {
     //Tag의 사용자수 파악
     const [tags] = await sequelize.query(`
@@ -111,25 +113,18 @@ schedule.scheduleJob('0 0 * * * *', async function (){
     `);
     
     for (const { TAG_ID, user_count } of tags) {
-      await sequelize.query(`
-        UPDATE Tag
+      await sequelize.query(`UPDATE Tag
         SET User_Count = ?
-        WHERE TAG_ID = ?
-      `, { replacements: [user_count, TAG_ID] });
+        WHERE TAG_ID = ?`, { replacements: [user_count, TAG_ID] });
     }
 
     //Success_Per를 기준으로 순위를 매김
-    await sequelize.query(`
-      SET @rank := 0;
-    `);
+    await sequelize.query(`SET @rank := 0;`);
     
-    await sequelize.query(`
-      UPDATE Tag t
-      JOIN (
-        SELECT TAG_ID, (@rank := @rank + 1) AS 'rank'
-        FROM Tag
-        ORDER BY Success_Per DESC
-      ) r
+    await sequelize.query(`UPDATE Tag t
+      JOIN (SELECT TAG_ID, (@rank := @rank + 1) AS 'rank'
+      	FROM Tag
+      	ORDER BY Success_Per DESC) r
       ON t.TAG_ID = r.TAG_ID
       SET t.Rank = r.rank;
     `);
@@ -138,10 +133,131 @@ schedule.scheduleJob('0 0 * * * *', async function (){
   } catch (err) {
     console.error('User_Count와 Rank 업데이트에 실패했습니다.', err);
   }
+  try {
+    //TAG_ID 별로 RunningDay의 평균을 계산
+    const [averages] = await sequelize.query(`
+      SELECT ht.TAG_ID, AVG(uh.RunningDay) as avgRunningDay
+      FROM Habit_Tag ht
+      JOIN User_habit uh ON ht.HABIT_ID = uh.HABIT_ID
+      GROUP BY ht.TAG_ID
+    `);
+
+    //계산된 평균값을 Tag 테이블에 업데이트
+    for (const { TAG_ID, avgRunningDay } of averages) {
+      await sequelize.query(`UPDATE Tag
+        SET Time_Average = ?
+        WHERE TAG_ID = ?`, { replacements: [avgRunningDay, TAG_ID] });
+    }
+
+    console.log('Time_Average가 업데이트 되었습니다.');
+  } catch (err) {
+    console.error('Time_Average 업데이트에 실패했습니다.', err);
+  }
 });
 
+////////////////////////////////////////////////////////////////////////
+
+//사용자 통계 정리
+schedule.scheduleJob('0 0 * * * *', async function (){
+  const transaction = await sequelize.transaction();
+
+  try {
+    // 사용자 전체 성공률 업데이트
+    await sequelize.query(`UPDATE User u
+	JOIN ( SELECT uh.USER_ID, 
+          COALESCE((SUM(uh.Success) / NULLIF(SUM(uh.Accumulate), 0)) * 100, 0) AS computedSuccess
+    	  FROM User_habit uh
+    	  GROUP BY uh.USER_ID) cs
+	ON u.USER_ID = cs.USER_ID
+	SET u.MySuccess = cs.computedSuccess;`, { transaction });
+
+    console.log('MySuccess가 업데이트 되었습니다.');
+
+    // 순위 초기화
+    await sequelize.query(`SET @rank := 0;`, { transaction });
+
+    // MyRank 업데이트
+    await sequelize.query(`UPDATE User u
+      JOIN (SELECT USER_ID, @rank := @rank + 1 
+        AS newRank 
+        FROM User 
+        ORDER BY MySuccess DESC) r 
+      ON u.USER_ID = r.USER_ID
+      SET u.MyRank = r.newRank;`, { transaction });
+
+    console.log('MyRank가 업데이트 되었습니다.');
+
+    await transaction.commit();
+  } catch (err) {
+    console.error('MySuccess 혹은 MyRank 업데이트에 실패했습니다.', err);
+
+    await transaction.rollback();
+  }
+});
 
 ////////////////////////////////////////////////////////////////////////
+
+schedule.scheduleJob('*/10 * * * * *', async function (){
+  try {
+    const currentDay = new Date().getDay();  // 0: 일요일, 1: 월요일, ..., 6: 토요일
+    const currentDayStr = ['일', '월', '화', '수', '목', '금', '토'][currentDay]; // Convert number to string (or use your own string)
+    
+
+     // Find all users that should update their daily habit
+    const [usersHabits] = await sequelize.query(`
+      SELECT uh.USER_ID, SUM(uh.Daily) AS dailySum, COUNT(uh.HABIT_ID) AS totalHabits
+      FROM User_habit uh
+      WHERE uh.Day LIKE :dayPattern
+      GROUP BY uh.USER_ID
+    `, { replacements: { dayPattern: `%${currentDayStr}%` } });
+
+    // Loop through each user and update their habit status
+    for (const { USER_ID, dailySum, totalHabits } of usersHabits) {
+    
+      const dailySumNumber = Number(dailySum);
+      if(dailySumNumber === totalHabits) {  // If all Daily are 1
+	// Increment MyPerfectDay and MyRunningPerfectDay
+        await sequelize.query(`
+          UPDATE User 
+          SET MyPerfectDay = MyPerfectDay + 1, 
+              MyRunningPerfectDay = MyRunningPerfectDay + 1 
+          WHERE USER_ID = :userId
+        `, { replacements: { userId: USER_ID } });
+      } else {  // If not all Daily are 1
+        // Get current MyBestPerfectDay and MyRunningPerfectDay
+        const [users] = await sequelize.query(`
+          SELECT MyBestPerfectDay, MyRunningPerfectDay 
+          FROM User 
+          WHERE USER_ID = :userId
+        `, { replacements: { userId: USER_ID } });
+        
+        // If MyRunningPerfectDay > MyBestPerfectDay, update MyBestPerfectDay
+        if(users[0].MyRunningPerfectDay > users[0].MyBestPerfectDay) {
+          await sequelize.query(`
+            UPDATE User 
+            SET MyBestPerfectDay = MyRunningPerfectDay, 
+                MyRunningPerfectDay = 0
+            WHERE USER_ID = :userId
+          `, { replacements: { userId: USER_ID } });
+        } else {
+          // Reset MyRunningPerfectDay to 0
+          await sequelize.query(`
+            UPDATE User 
+            SET MyRunningPerfectDay = 0
+            WHERE USER_ID = :userId
+          `, { replacements: { userId: USER_ID } });
+        }
+      }
+    }
+
+    console.log('User habit status has been updated.');
+  } catch (err) {
+    console.error('Failed to update user habit status.', err);
+  }
+});
+
+////////////////////////////////////////////////////////////////////////
+
 
 app.post('/user', (req, res) => {   //유저 정보 입력
     const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token } = req.body;
@@ -266,8 +382,8 @@ app.post('/renewal', async (req, res) => {      //습관 성공이나 실패
   const { USER_ID, HABIT_ID, isSuccess } = req.body;
 
   try {
-    //isSuccess값에 따라 Success나 Fail에 1을 더함
-    const updateQuery = `UPDATE User_habit SET ${isSuccess == 1 ? 'Success' : 'Fail'} = ${isSuccess == 1 ? 'Success' : 'Fail'} + 1,  Daily = ${isSuccess} WHERE USER_ID = ? AND HABIT_ID = ?`;
+    //isSuccess값에 따라 Success나 Fail에 1을 더함, RunningDay 업데이트
+    const updateQuery = `UPDATE User_habit SET ${isSuccess == 1 ? 'Success' : 'Fail'} = ${isSuccess == 1 ? 'Success' : 'Fail'} + 1, Daily = ${isSuccess}, RunningDay = ${isSuccess == 1 ? 'RunningDay + 1' : '0'} WHERE USER_ID = ? AND HABIT_ID = ?`;
     await sequelize.query(updateQuery, { replacements: [USER_ID, HABIT_ID] });
 
     //Accumulate값 1증가, Rate값 재입력
@@ -292,6 +408,7 @@ app.post('/renewal', async (req, res) => {      //습관 성공이나 실패
     res.status(500).send('Internal Server Error');
   }
 });
+
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -392,19 +509,19 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/habit/stats', (req, res) => {	//단체 통계 불러오기
-  const { HABIT_ID, USER_ID } = req.body;
+  const { USER_ID } = req.body;
 
   const query = `
     SELECT t.*
     FROM Habit_Tag h
     JOIN Tag t ON h.TAG_ID = t.TAG_ID
-    WHERE h.HABIT_ID = ? AND h.USER_ID = ?;
+    WHERE h.USER_ID = ?;
   `;
 
-  sequelize.query(query, { replacements: [HABIT_ID, USER_ID] })
+  sequelize.query(query, { replacements: [USER_ID] })
     .then(([result]) => {
       if (result.length === 0) {
-        console.error('No habit found with given ID and USER_ID');
+        console.error('No habit found with given USER_ID');
         return res.status(404).send('Habit not found');
       }
 
@@ -414,6 +531,53 @@ app.post('/habit/stats', (req, res) => {	//단체 통계 불러오기
       console.error('Query Error:', err);
       return res.status(500).send('Internal Server Error');
     });
+});
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/stats', async (req, res) => {	//사용자 통계 불러오기
+    const { USER_ID } = req.body;
+    
+    if (!USER_ID) {
+        return res.status(400).json({ success: false, message: 'USER_ID is required' });
+    }
+    
+    try {
+        const [userStats] = await sequelize.query(`
+            SELECT MySuccess, MyRunningPerfectDay, MyBestPerfectDay, MyPerfectDay, MyRank
+            FROM User
+            WHERE USER_ID = :userId
+        `, { replacements: { userId: USER_ID } });
+        
+        // Check if user stats exist
+        if (userStats.length === 0) {
+            return res.status(404).json({ success: false, message: 'User stats not found' });
+        }
+
+        res.status(200).json({ success: true, data: userStats[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+
+
+////////////////////////////////////////////////////////////////////////
+
+app.get('/habit/rank', async (req, res) => {
+    try {
+        console.log("Querying database...");  // Log here
+        const [tags] = await sequelize.query(`
+            SELECT \`Name\`, \`Rank\` FROM \`Tag\`
+            WHERE \`Rank\` IS NOT NULL AND \`Rank\` BETWEEN 1 AND 5
+            ORDER BY \`Rank\` ASC
+        `);
+        console.log("Query successful!");  // Log here
+        res.status(200).json({ success: true, data: tags });
+    } catch (err) {
+        console.error("Error occurred:", err);  // Log here
+        res.status(500).json({ success: false, message: 'Server Error', error: err.message });
+    }
 });
 
 

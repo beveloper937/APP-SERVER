@@ -53,6 +53,10 @@ class UserHabit extends Sequelize.Model {
                 type: Sequelize.BOOLEAN,
                 allowNull: true
             },
+	    RunningDay: {
+		type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 0
+	    },
             Success: {
                 type: Sequelize.INTEGER.UNSIGNED,
                 defaultValue: 0

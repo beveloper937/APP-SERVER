@@ -29,14 +29,34 @@ class User extends Sequelize.Model {
                 type: Sequelize.INTEGER.UNSIGNED,
                 allowNull: false
               },
+	      MySuccess: {
+		type: Sequelize.FLOAT,
+		defaultValue: 0
+	      },
+	      MyRunningPerfectDay: {
+		type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 0
+	      },
+	      MyBestPerfectDay: {
+	      	type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 0
+	      },
+	      MyPerfectDay: {
+		type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 0
+	      },
+	      MyRank: {
+		type: Sequelize.FLOAT,
+		defaultValue: 0
+	      },
               TreeStatus: {
                 type: Sequelize.INTEGER.UNSIGNED,
                 allowNull: false
-            },
-	    Token: {
+             },
+	     Token: {
 		type: Sequelize.STRING,
 		allowNull: false
-	    }
+	     }
         },{
             sequelize,
             timestamps: false,
