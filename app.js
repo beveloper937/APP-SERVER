@@ -187,7 +187,7 @@ app.post('/login', (req, res) => {    //로그인 기능
 ////////////////////////////////////////////////////////////////////////
 
 
-app.post('/user/habit', (req, res) => {
+app.post('/user/habit', (req, res) => {    //습관 추가
     const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
     console.log('Received JSON data:', req.body);
 
@@ -262,41 +262,7 @@ app.post('/user/habit', (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////
 
-/*app.post('/renewal', (req, res) => {      //습관 성공,실패 기록
-  const { USER_ID, HABIT_ID, isSuccess } = req.body;
-
-  const updateAccumulateQuery = `UPDATE User_habit SET Accumulate = Accumulate + 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
-  sequelize.query(updateAccumulateQuery, { replacements: [USER_ID, HABIT_ID] })
-    .then(() => {
-      if (isSuccess) {
-        const updateSuccessQuery = `UPDATE User_habit SET Success = Success + 1,  Daily = 1 WHERE USER_ID = ? AND HABIT_ID = ?`;
-        sequelize.query(updateSuccessQuery, { replacements: [USER_ID, HABIT_ID] })
-          .then(() => {
-            res.send('Data updated successfully');
-          })
-          .catch((err) => {
-            console.error('Failed to update Success:', err);
-            res.status(501).send('Internal Server Error');
-          });
-      } else {
-        const updateFailQuery = `UPDATE User_habit SET Fail = Fail + 1,  Daily = 0 WHERE USER_ID = ? AND HABIT_ID = ?`;
-        sequelize.query(updateFailQuery, { replacements: [USER_ID, HABIT_ID] })
-          .then(() => {
-            res.send('Data updated successfully');
-          })
-          .catch((err) => {
-            console.error('Failed to update Fail:', err);
-            res.status(502).send('Internal Server Error');
-          });
-      }
-    })
-    .catch((err) => {
-      console.error('Failed to update Accumulate:', err);
-      res.status(503).send('Internal Server Error');
-    });
-});*/
-
-app.post('/renewal', async (req, res) => {
+app.post('/renewal', async (req, res) => {      //습관 성공이나 실패
   const { USER_ID, HABIT_ID, isSuccess } = req.body;
 
   try {
@@ -422,6 +388,34 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
       res.status(500).send('Internal Server Error');
     });
 });
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/habit/stats', (req, res) => {	//단체 통계 불러오기
+  const { HABIT_ID, USER_ID } = req.body;
+
+  const query = `
+    SELECT t.*
+    FROM Habit_Tag h
+    JOIN Tag t ON h.TAG_ID = t.TAG_ID
+    WHERE h.HABIT_ID = ? AND h.USER_ID = ?;
+  `;
+
+  sequelize.query(query, { replacements: [HABIT_ID, USER_ID] })
+    .then(([result]) => {
+      if (result.length === 0) {
+        console.error('No habit found with given ID and USER_ID');
+        return res.status(404).send('Habit not found');
+      }
+
+      return res.json({ data: result });
+    })
+    .catch((err) => {
+      console.error('Query Error:', err);
+      return res.status(500).send('Internal Server Error');
+    });
+});
+
 
 ////////////////////////////////////////////////////////////////////////
 
