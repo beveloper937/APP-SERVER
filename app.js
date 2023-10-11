@@ -27,32 +27,6 @@ admin.initializeApp({
 
 ////////////////////////////////////////////////////////////////////////
 
-/*app.get('/push', (req, res, next) => {
-  let target_token =
-    'et-DZiGgQHOYRZo4UAsw0R:APA91bFS8wEDMepnm9TEakazZ3lNFdoSZVgUJXSNudqxpWKf3HcLyNuenjC6sb9PTa6ctNBaYkR2UwWmtBTLcuTTHPCWE5cK4zOxeaJgHvSXA5RQKEtzuKgwf2Xog3drtHGihvlTMgrH'
-
-  let message = {
-    data: {
-      title: '푸시알림 테스트',
-      body: '푸시알림 테스트합니다.',
-      style: '테스트',
-    },
-    token: target_token,
-  }
-
-  admin
-    .messaging()
-    .send(message)
-    .then(function (response) {
-      console.log('Successfully sent message: : ', response)
-    })
-    .catch(function (err) {
-      console.log('Error Sending message!!! : ', err)
-    })
-})*/
-
-////////////////////////////////////////////////////////////////////////
-
 //알림 스케줄
 schedule.scheduleJob('*/1 * * * *', async function () {	
   // 현재 요일과 시간 구하기
@@ -103,7 +77,7 @@ schedule.scheduleJob('*/1 * * * *', async function () {
 ////////////////////////////////////////////////////////////////////////
 
 //통계 정리 스케줄
-schedule.scheduleJob('0 0 0 * * *', async function (){
+schedule.scheduleJob('*/30 * * * * *', async function (){
   try {
     //Tag의 사용자수 파악
     const [tags] = await sequelize.query(`
@@ -158,7 +132,7 @@ schedule.scheduleJob('0 0 0 * * *', async function (){
 ////////////////////////////////////////////////////////////////////////
 
 //사용자 통계 정리
-schedule.scheduleJob('0 0 * * * *', async function (){
+schedule.scheduleJob('*/10 * * * * *', async function (){
   const transaction = await sequelize.transaction();
 
   try {
@@ -258,25 +232,31 @@ schedule.scheduleJob('*/10 * * * * *', async function (){
 
 ////////////////////////////////////////////////////////////////////////
 
-
-app.post('/user', (req, res) => {   //유저 정보 입력
+app.post('/user', (req, res) => {	//유저 생성
     const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token } = req.body;
     const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?)`;
 
     sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token] })
-      .then(() => {
-        const selectQuery = `SELECT LAST_INSERT_ID() as USER_ID`;
-        return sequelize.query(selectQuery, { plain: true });
-      })
-      .then((result) => {
-        const USER_ID = result.USER_ID;
-        res.json({ USER_ID });
-      })
+        .then(() => {
+            const selectQuery = `SELECT LAST_INSERT_ID() as USER_ID`;
+            return sequelize.query(selectQuery, { type: sequelize.QueryTypes.SELECT });
+        })
+        .then((result) => {
+            const USER_ID = result[0].USER_ID;
 
-      .catch((err) => {
-        console.error('Failed to execute query:', err);
-        res.status(501).send('User INSERT Error');
-      });
+            // Habit_Week 추가
+            const habitWeekQuery = `INSERT INTO Habit_Week (USER_ID) VALUES (?)`;
+
+            return sequelize.query(habitWeekQuery, { replacements: [USER_ID] })
+                .then(() => ({ USER_ID })); // Returning USER_ID for the next then block
+        })
+        .then(({ USER_ID }) => {
+            res.json({ USER_ID });
+        })
+        .catch((err) => {
+            console.error('Failed to execute query:', err);
+            res.status(501).send('User INSERT Error');
+        });
 });
 
 ////////////////////////////////////////////////////////////////////////
@@ -508,55 +488,56 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/habit/stats', (req, res) => {	//단체 통계 불러오기
-  const { USER_ID } = req.body;
-
-  const query = `
-    SELECT t.*
-    FROM Habit_Tag h
-    JOIN Tag t ON h.TAG_ID = t.TAG_ID
-    WHERE h.USER_ID = ?;
-  `;
-
-  sequelize.query(query, { replacements: [USER_ID] })
-    .then(([result]) => {
-      if (result.length === 0) {
-        console.error('No habit found with given USER_ID');
-        return res.status(404).send('Habit not found');
-      }
-
-      return res.json({ data: result });
-    })
-    .catch((err) => {
-      console.error('Query Error:', err);
-      return res.status(500).send('Internal Server Error');
-    });
-});
-
-////////////////////////////////////////////////////////////////////////
-
-app.post('/user/stats', async (req, res) => {	//사용자 통계 불러오기
-    const { USER_ID } = req.body;
-    
-    if (!USER_ID) {
-        return res.status(400).json({ success: false, message: 'USER_ID is required' });
-    }
-    
+app.post('/habit/org/stats', async (req, res) => {        
     try {
-        const [userStats] = await sequelize.query(`
-            SELECT MySuccess, MyRunningPerfectDay, MyBestPerfectDay, MyPerfectDay, MyRank
-            FROM User
-            WHERE USER_ID = :userId
-        `, { replacements: { userId: USER_ID } });
-        
-        // Check if user stats exist
-        if (userStats.length === 0) {
-            return res.status(404).json({ success: false, message: 'User stats not found' });
-        }
+        const { USER_ID } = req.body;
 
-        res.status(200).json({ success: true, data: userStats[0] });
-    } catch (err) {
-        console.error(err);
+        // 1. MySuccess 값을 가져오기
+        const [user] = await sequelize.query(`
+            SELECT MySuccess, MyRunningPerfectDay FROM User WHERE USER_ID = ?
+        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+
+        // 2. 전체 습관 성공률 계산하기
+        const [orgSuccess] = await sequelize.query(`
+            SELECT (SUM(Success)/SUM(Accumulate))*100 AS Org_Success FROM User_habit
+        `, { type: sequelize.QueryTypes.SELECT });
+
+        // 3. 전체 사용자 수와 해당 유저의 Rank 가져오기
+        const [orgUser] = await sequelize.query(`
+            SELECT COUNT(*) AS Org_User FROM User
+        `, { type: sequelize.QueryTypes.SELECT });
+        
+        const [userRank] = await sequelize.query(`
+            SELECT MyRank FROM User WHERE USER_ID = ?
+        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+
+        // 4. 사용자들의 평균 연속 성공일 계산하기
+        const [orgAvgRunningDay] = await sequelize.query(`
+            SELECT AVG(MyRunningPerfectDay) AS Org_AvgRunningDay FROM User
+        `, { type: sequelize.QueryTypes.SELECT });
+
+        // 5. MyRunningPerfectDay 가져오기
+        // 사용 위의 user 변수를 사용합니다.
+
+        // 6. Rank 1~5까지의 Name과 Rank 가져오기
+        const tags = await sequelize.query(`
+    	    SELECT \`Name\`, \`Rank\` FROM \`Tag\` WHERE \`Rank\` IS NOT NULL AND \`Rank\` BETWEEN 1 AND 5 ORDER BY \`Rank\` ASC
+	`, { type: sequelize.QueryTypes.SELECT });
+
+	console.log(tags);
+        // Response 구성하기
+        res.status(200).json({
+            MySuccess: user.MySuccess,
+            Org_Success: orgSuccess.Org_Success,
+            User_Rank: userRank.MyRank,
+            Org_User: orgUser.Org_User,
+            Org_AvgRunningDay: orgAvgRunningDay.Org_AvgRunningDay,
+            MyRunningPerfectDay: user.MyRunningPerfectDay,
+            TopTags: tags
+        });
+
+    } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 });
@@ -564,22 +545,66 @@ app.post('/user/stats', async (req, res) => {	//사용자 통계 불러오기
 
 ////////////////////////////////////////////////////////////////////////
 
-app.get('/habit/rank', async (req, res) => {
+app.post('/habit/user/stats', async (req, res) => {           
     try {
-        console.log("Querying database...");  // Log here
-        const [tags] = await sequelize.query(`
-            SELECT \`Name\`, \`Rank\` FROM \`Tag\`
-            WHERE \`Rank\` IS NOT NULL AND \`Rank\` BETWEEN 1 AND 5
-            ORDER BY \`Rank\` ASC
-        `);
-        console.log("Query successful!");  // Log here
-        res.status(200).json({ success: true, data: tags });
-    } catch (err) {
-        console.error("Error occurred:", err);  // Log here
-        res.status(500).json({ success: false, message: 'Server Error', error: err.message });
+        const { USER_ID } = req.body;
+
+        // 1. USER_ID로 Habit_Week 테이블에 조인하고, 각 요일별 계산
+        const [weekStats] = await sequelize.query(`
+	    SELECT 
+    		COALESCE(((Mon_S + Mon_F) / NULLIF(Mon_S, 0)) * 100, 0) AS Mon, 
+    		COALESCE(((Tue_S + Tue_F) / NULLIF(Tue_S, 0)) * 100, 0) AS Tue,
+    		COALESCE(((Wed_S + Wed_F) / NULLIF(Wed_S, 0)) * 100, 0) AS Wed,
+    		COALESCE(((Thu_S + Thu_F) / NULLIF(Thu_S, 0)) * 100, 0) AS Thu,
+    		COALESCE(((Fri_S + Fri_F) / NULLIF(Fri_S, 0)) * 100, 0) AS Fri,
+    		COALESCE(((Sat_S + Sat_F) / NULLIF(Sat_S, 0)) * 100, 0) AS Sat,
+    		COALESCE(((Sun_S + Sun_F) / NULLIF(Sun_S, 0)) * 100, 0) AS Sun
+	   FROM Habit_Week
+	   WHERE USER_ID = ?
+	`, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+
+        // 2. USER_ID에 연결된 User_habit테이블에서 모든 HABIT_ID 찾아서 Title, Rate 넘겨주기
+        const habits = await sequelize.query(`
+            SELECT Title, Rate  FROM User_habit WHERE USER_ID = ?
+        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+
+        // 3. Habit_Tag테이블에서 USER_ID랑 연결된 모든TAG_ID를 가져가서 Tag테이블에 조인 후 모든 Successs_per 넘겨주기
+        const tags = await sequelize.query(`
+            SELECT t.Name, t.Success_per
+            FROM Habit_Tag ht
+            JOIN Tag t ON ht.TAG_ID = t.TAG_ID
+            WHERE ht.USER_ID = ?
+        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+
+        // Response 구성하기
+        res.status(200).json({
+            weekStats, // 첫 번째 결과를 사용 (만약 결과가 여러개라면 이 방법이 적합하지 않을 수 있습니다)
+            habits,
+            tags
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
 });
 
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/calendar', async (req, res) => {
+    try {
+        const { USER_ID } = req.body;
+
+        // User 테이블에서 MyPerfectDay, MyRunningPerfectDay, MyBestPerfectDay 조회
+        const [result] = await sequelize.query(`SELECT MyPerfectDay, MyRunningPerfectDay, MyBestPerfectDay FROM User WHERE USER_ID = ?`, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT});
+
+        res.status(200).json({data: result});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server Error'});
+    }
+});
 
 ////////////////////////////////////////////////////////////////////////
 

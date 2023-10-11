@@ -66,7 +66,7 @@ class UserHabit extends Sequelize.Model {
                 defaultValue: 0
             },
 	    Rate: {
-		type: Sequelize.INTEGER.UNSIGNED,
+		type: Sequelize.FLOAT,
 		defaultValue: 0	
 	    },
             TargetDate: {
