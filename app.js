@@ -27,7 +27,7 @@ admin.initializeApp({
 
 ////////////////////////////////////////////////////////////////////////
 
-//알림 스케줄
+//알림 스케줄(1분마다 스케줄)
 schedule.scheduleJob('*/1 * * * *', async function () {	
   // 현재 요일과 시간 구하기
   const now = new Date();
@@ -76,7 +76,7 @@ schedule.scheduleJob('*/1 * * * *', async function () {
 
 ////////////////////////////////////////////////////////////////////////
 
-//통계 정리 스케줄
+//통계 정리 스케줄(1시간마다 스케줄)
 schedule.scheduleJob('*/30 * * * * *', async function (){
   try {
     //Tag의 사용자수 파악
@@ -131,7 +131,7 @@ schedule.scheduleJob('*/30 * * * * *', async function (){
 
 ////////////////////////////////////////////////////////////////////////
 
-//사용자 통계 정리
+//사용자 Rank와 사용자 전체 성공률  정리(00:00분에 스케줄)
 schedule.scheduleJob('*/10 * * * * *', async function (){
   const transaction = await sequelize.transaction();
 
@@ -171,6 +171,7 @@ schedule.scheduleJob('*/10 * * * * *', async function (){
 
 ////////////////////////////////////////////////////////////////////////
 
+//사용자 습관 추적(23:59분에 스케줄)
 schedule.scheduleJob('*/10 * * * * *', async function (){
   try {
     const currentDay = new Date().getDay();  // 0: 일요일, 1: 월요일, ..., 6: 토요일
@@ -263,13 +264,13 @@ app.post('/user', (req, res) => {	//유저 생성
 
 app.post('/login', (req, res) => {    //로그인 기능
   const { USER_Email, USER_Password } = req.body;
-  const query = `SELECT USER_ID FROM User WHERE USER_Email = ? AND USER_Password = ?`;
+  const query = `SELECT USER_ID, USER_Name AS "USER_NAME" FROM User WHERE USER_Email = ? AND USER_Password = ?`;
 
   sequelize.query(query, { replacements: [USER_Email, USER_Password], type: sequelize.QueryTypes.SELECT })
     .then((users) => {
       if (users.length > 0) {
-        const USER_ID = users[0].USER_ID;
-        res.json({ authenticated: true, USER_ID });
+        const { USER_ID, USER_NAME } = users[0];
+        res.json({ authenticated: true, USER_ID, USER_NAME });
       } else {
         res.json({ authenticated: false });
       }
@@ -279,6 +280,7 @@ app.post('/login', (req, res) => {    //로그인 기능
       res.status(500).send('Internal Server Error');
     });
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -358,7 +360,74 @@ app.post('/user/habit', (req, res) => {    //습관 추가
 
 ////////////////////////////////////////////////////////////////////////
 
-app.post('/renewal', async (req, res) => {      //습관 성공이나 실패
+app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
+  const { USER_ID, HABIT_ID, isSuccess, isCancel } = req.body;	//isSuccess가 1이면 성공, 0이면 실패 //isCancel이 1이면 습관 취소, 0이면 isSuccess값에 따라서 로직 수행
+
+  try {
+   
+    const [[{ Success, Accumulate }]] = await sequelize.query(`SELECT Success, Accumulate FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID] });
+
+    const result = await sequelize.transaction(async (t) => {
+     
+      if (isCancel == 1) {
+        // 취소 로직
+        const [[{ Daily }]] = await sequelize.query(`SELECT Daily FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
+
+        await sequelize.query(`
+          UPDATE User_habit
+          SET ${Daily == 0 ? 'Fail' : 'Success'} = ${Daily == 0 ? 'Fail' : 'Success'} - 1, 
+              Accumulate = Accumulate - 1,
+	      RunningDay = RunningDay - 1,
+              Daily = B_Daily, B_Daily = BB_Daily, BB_Daily = 0
+          WHERE USER_ID = ? AND HABIT_ID = ?`, 
+        { replacements: [USER_ID, HABIT_ID], transaction: t });
+
+        const [tags] = await sequelize.query(`SELECT TAG_ID FROM Habit_Tag WHERE HABIT_ID = ?`, { replacements: [HABIT_ID], transaction: t });
+        for (const { TAG_ID } of tags) {
+          await sequelize.query(`
+	    UPDATE Tag SET
+            Habit_${Daily == 0 ? 'Fail' : 'Success'} = Habit_${Daily == 0 ? 'Fail' : 'Success'} - 1,
+            Success_Per = CASE WHEN (Habit_Success + Habit_Fail) = 0 THEN 0 ELSE (Habit_Success / (Habit_Success + Habit_Fail)) * 100 END,
+            Fail_Per = CASE WHEN (Habit_Success + Habit_Fail) = 0 THEN 0 ELSE (Habit_Fail / (Habit_Success + Habit_Fail)) * 100 END
+            WHERE TAG_ID = ?`, { replacements: [TAG_ID], transaction: t });
+       }
+      } else {
+	// 업데이트 로직
+        await sequelize.query(`UPDATE User_habit SET BB_Daily = B_Daily, B_Daily = Daily WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
+
+        await sequelize.query(`UPDATE User_habit SET ${isSuccess == 1 ? 'Success' : 'Fail'} = ${isSuccess == 1 ? 'Success' : 'Fail'} + 1, Daily = ${isSuccess}, RunningDay = ${isSuccess == 1 ? 'RunningDay + 1' : '0'} WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
+
+        const Rate = (Success / (Accumulate + 1)) * 100;
+        await sequelize.query(`UPDATE User_habit SET Accumulate = Accumulate + 1, Rate = ? WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [Rate, USER_ID, HABIT_ID], transaction: t });
+
+        const [tags] = await sequelize.query(`SELECT TAG_ID FROM Habit_Tag WHERE HABIT_ID = ?`, { replacements: [HABIT_ID], transaction: t });
+        for (const { TAG_ID } of tags) {
+          await sequelize.query(`
+            UPDATE Tag SET
+            Habit_${isSuccess == 1 ? 'Success' : 'Fail'} = Habit_${isSuccess == 1 ? 'Success' : 'Fail'} + 1,
+            Success_Per = CASE WHEN (Habit_Success + Habit_Fail) = 0 THEN 0 ELSE (Habit_Success / (Habit_Success + Habit_Fail)) * 100 END,
+            Fail_Per = CASE WHEN (Habit_Success + Habit_Fail) = 0 THEN 0 ELSE (Habit_Fail / (Habit_Success + Habit_Fail)) * 100 END
+            WHERE TAG_ID = ?`, { replacements: [TAG_ID], transaction: t });
+        }
+      }
+    });
+
+    res.send('Data updated successfully');
+  } catch (err) {
+    console.error('Failed to update data:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+/////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/test', async (req, res) => {      //습관 성공,실패 테스트용
   const { USER_ID, HABIT_ID, isSuccess } = req.body;
 
   try {
@@ -388,7 +457,6 @@ app.post('/renewal', async (req, res) => {      //습관 성공이나 실패
     res.status(500).send('Internal Server Error');
   }
 });
-
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -551,36 +619,33 @@ app.post('/habit/user/stats', async (req, res) => {
 
         // 1. USER_ID로 Habit_Week 테이블에 조인하고, 각 요일별 계산
         const [weekStats] = await sequelize.query(`
-	    SELECT 
-    		COALESCE(((Mon_S + Mon_F) / NULLIF(Mon_S, 0)) * 100, 0) AS Mon, 
-    		COALESCE(((Tue_S + Tue_F) / NULLIF(Tue_S, 0)) * 100, 0) AS Tue,
-    		COALESCE(((Wed_S + Wed_F) / NULLIF(Wed_S, 0)) * 100, 0) AS Wed,
-    		COALESCE(((Thu_S + Thu_F) / NULLIF(Thu_S, 0)) * 100, 0) AS Thu,
-    		COALESCE(((Fri_S + Fri_F) / NULLIF(Fri_S, 0)) * 100, 0) AS Fri,
-    		COALESCE(((Sat_S + Sat_F) / NULLIF(Sat_S, 0)) * 100, 0) AS Sat,
-    		COALESCE(((Sun_S + Sun_F) / NULLIF(Sun_S, 0)) * 100, 0) AS Sun
-	   FROM Habit_Week
-	   WHERE USER_ID = ?
-	`, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+            SELECT 
+                COALESCE((Mon_S / NULLIF(Mon_S + Mon_F, 0)) * 100, 0) AS Mon, 
+		COALESCE((Tue_S / NULLIF(Tue_S + Tue_F, 0)) * 100, 0) AS Tue,
+		COALESCE((Wed_S / NULLIF(Wed_S + Wed_F, 0)) * 100, 0) AS Wed,
+		COALESCE((Thu_S / NULLIF(Thu_S + Thu_F, 0)) * 100, 0) AS Thu,
+		COALESCE((Fri_S / NULLIF(Fri_S + Fri_F, 0)) * 100, 0) AS Fri,
+		COALESCE((Sat_S / NULLIF(Sat_S + Sat_F, 0)) * 100, 0) AS Sat,
+		COALESCE((Sun_S / NULLIF(Sun_S + Sun_F, 0)) * 100, 0) AS Sun
+           FROM Habit_Week
+            WHERE USER_ID = ?
+        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
 
-        // 2. USER_ID에 연결된 User_habit테이블에서 모든 HABIT_ID 찾아서 Title, Rate 넘겨주기
+        // 2. USER_ID에 연결된 User_habit테이블에서 모든 HABIT_ID 찾아서 Title, Rate, 그리고 연관된 TAG의 Success_Per 가져오기
         const habits = await sequelize.query(`
-            SELECT Title, Rate  FROM User_habit WHERE USER_ID = ?
-        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
-
-        // 3. Habit_Tag테이블에서 USER_ID랑 연결된 모든TAG_ID를 가져가서 Tag테이블에 조인 후 모든 Successs_per 넘겨주기
-        const tags = await sequelize.query(`
-            SELECT t.Name, t.Success_per
-            FROM Habit_Tag ht
-            JOIN Tag t ON ht.TAG_ID = t.TAG_ID
-            WHERE ht.USER_ID = ?
-        `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
+             SELECT uh.Title, uh.Rate, 
+	     JSON_ARRAYAGG(JSON_OBJECT('Name', t.Name, 'Success_Per', t.Success_Per)) AS Tags
+	     FROM User_habit uh 
+	     LEFT JOIN Habit_Tag ht ON uh.HABIT_ID = ht.HABIT_ID 
+	     LEFT JOIN Tag t ON ht.TAG_ID = t.TAG_ID
+	     WHERE uh.USER_ID = ?
+	     GROUP BY uh.Title, uh.Rate;
+	`, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
 
         // Response 구성하기
         res.status(200).json({
-            weekStats, // 첫 번째 결과를 사용 (만약 결과가 여러개라면 이 방법이 적합하지 않을 수 있습니다)
-            habits,
-            tags
+            weekStats,
+            habits
         });
 
     } catch (error) {
@@ -590,16 +655,18 @@ app.post('/habit/user/stats', async (req, res) => {
 });
 
 
+
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/calendar', async (req, res) => {
     try {
         const { USER_ID } = req.body;
-
+	
         // User 테이블에서 MyPerfectDay, MyRunningPerfectDay, MyBestPerfectDay 조회
         const [result] = await sequelize.query(`SELECT MyPerfectDay, MyRunningPerfectDay, MyBestPerfectDay FROM User WHERE USER_ID = ?`, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT});
-
-        res.status(200).json({data: result});
+	const responseData = { data: result };
+	
+        res.status(200).json({ data:result });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server Error'});

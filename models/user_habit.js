@@ -53,6 +53,14 @@ class UserHabit extends Sequelize.Model {
                 type: Sequelize.BOOLEAN,
                 allowNull: true
             },
+	    B_Daily: {
+		type: Sequelize.BOOLEAN,
+		defaultValue: false
+	    },
+	    BB_Daily: {
+		type: Sequelize.BOOLEAN,
+		defaultValue: false
+	    },
 	    RunningDay: {
 		type: Sequelize.INTEGER.UNSIGNED,
 		defaultValue: 0
