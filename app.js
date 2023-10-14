@@ -59,8 +59,8 @@ schedule.scheduleJob('*/1 * * * *', async function () {
       // FCM 메시지 작성
       const message = {
         data: {
-          title: '알림',
-          body: `일정 시작: ${title}`,
+          title: '습관 알림',
+          body: `${title}을 시작할 시간입니다.`,
         },
         tokens: [token], // 해당 토큰으로 알림을 전송
       };
@@ -419,46 +419,6 @@ app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
   }
 });
 
-/////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////
-
-app.post('/test', async (req, res) => {      //습관 성공,실패 테스트용
-  const { USER_ID, HABIT_ID, isSuccess } = req.body;
-
-  try {
-    //isSuccess값에 따라 Success나 Fail에 1을 더함, RunningDay 업데이트
-    const updateQuery = `UPDATE User_habit SET ${isSuccess == 1 ? 'Success' : 'Fail'} = ${isSuccess == 1 ? 'Success' : 'Fail'} + 1, Daily = ${isSuccess}, RunningDay = ${isSuccess == 1 ? 'RunningDay + 1' : '0'} WHERE USER_ID = ? AND HABIT_ID = ?`;
-    await sequelize.query(updateQuery, { replacements: [USER_ID, HABIT_ID] });
-
-    //Accumulate값 1증가, Rate값 재입력
-    const [[{ Success, Accumulate }]] = await sequelize.query(`SELECT Success, Accumulate FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID] });
-    const Rate = (Success / (Accumulate + 1)) * 100;
-    await sequelize.query(`UPDATE User_habit SET Accumulate = Accumulate + 1, Rate = ? WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [Rate, USER_ID, HABIT_ID] });
-
-    //연관된 Tag에 단체 통계를 위한 값 증가
-    const [tags] = await sequelize.query(`SELECT TAG_ID FROM Habit_Tag WHERE HABIT_ID = ?`, { replacements: [HABIT_ID] });
-    for (const { TAG_ID } of tags) {
-      await sequelize.query(`
-        UPDATE Tag SET
-        Habit_${isSuccess == 1 ? 'Success' : 'Fail'} = Habit_${isSuccess == 1 ? 'Success' : 'Fail'} + 1,
-        Success_Per = (Habit_Success / (Habit_Success + Habit_Fail)) * 100,
-        Fail_Per = (Habit_Fail / (Habit_Success + Habit_Fail)) * 100
-        WHERE TAG_ID = ?`, { replacements: [TAG_ID] });
-    }
-
-    res.send('Data updated successfully');
-  } catch (err) {
-    console.error('Failed to update data:', err);
-    res.status(500).send('Internal Server Error');
-  }
-});
-
-
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/target', (req, res) => {    //목표 수정 기능
@@ -767,33 +727,37 @@ app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보�
 
 ////////////////////////////////////////////////////////////////////////
 
-app.get('/follow', (req, res) => {   ///내가 팔로우한 사람 찾기
+app.get('/follow', (req, res) => {
   const { USER_ID } = req.query;
   const query = `SELECT Target_ID FROM Follow WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
-      // 결과로 받은 Target_ID들을 배열로 추출
       const targetIDs = results.map(result => result.Target_ID);
-      
-      // User 테이블에서 해당 Target_ID들에 해당하는 USER_Name을 가져오기 위한 쿼리
+
+      // targetIDs가 비어있다면, 즉시 응답을 보내고 함수를 종료합니다.
+      if (targetIDs.length === 0) {
+        return res.json([]);
+      }
+
       const userQuery = `SELECT USER_ID, USER_Name FROM User WHERE USER_ID IN (?)`;
-      
+
+      // Sequelize에서 배열을 replacements로 사용할 때, spread 연산자를 사용하여 배열의 요소를 분리합니다.
       sequelize.query(userQuery, { replacements: [targetIDs], type: sequelize.QueryTypes.SELECT })
         .then((userResults) => {
-          // userResults에는 USER_ID와 USER_Name이 포함된 결과가 있음
           res.json(userResults);
         })
         .catch((err) => {
           console.error('Failed to execute user query:', err);
-          res.status(504).send('Internal Server Error');
+          res.status(500).send('Internal Server Error'); // 500은 일반적인 서버 오류 코드입니다. 504는 Gateway Timeout을 의미하므로 여기에서는 적절하지 않습니다.
         });
     })
     .catch((err) => {
       console.error('Failed to execute follow query:', err);
-      res.status(504).send('Internal Server Error');
+      res.status(500).send('Internal Server Error');
     });
 });
+
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -812,6 +776,66 @@ app.get('/follower', (req, res) => {   ///나를 팔로우한 사람 찾기
 })
 
 ////////////////////////////////////////////////////////////////////////
+
+app.post('/follower/alarm', async (req, res) => {
+  const { USER_ID, HABIT_ID, Follower_ID } = req.body;
+
+  if (!Array.isArray(Follower_ID)) {	//Follower_ID는 배열로 보내줘야함
+    return res.status(400).send('Follower_ID should be an array');
+  }
+
+  try {
+    // Title 가져오기
+    const [[{ Title }]] = await sequelize.query(`SELECT Title FROM User_habit WHERE HABIT_ID = ? AND USER_ID = ?`, { replacements: [HABIT_ID, USER_ID] });
+    if (!Title) {
+      return res.status(404).send('Habit not found');
+    }
+
+    // User_Name 가져오기
+    const [[{ USER_NAME }]] = await sequelize.query(`SELECT USER_NAME FROM User WHERE USER_ID = ?`, { replacements: [USER_ID] });
+    if (!USER_NAME) {
+      return res.status(404).send('User not found');
+    }
+
+    // Token 여러개 가져오기
+    const [users] = await sequelize.query(`SELECT Token FROM User WHERE USER_ID IN (?)`, { replacements: [Follower_ID] });
+    
+    const tokens = users.map(u => u.Token).filter(Boolean); 
+    if (tokens.length === 0) {
+      return res.status(404).send('No valid tokens found for users');
+    }
+
+    // FCM Message 문자 여러개 보내기
+    const message = {
+      notification: {
+        title: '팔로워 알림',
+        body: `${USER_NAME} 이 ${Title}을 성공했습니다`
+      },
+      tokens: tokens
+    };
+
+    const response = await admin.messaging().sendMulticast(message);
+
+    // Token dubugging
+    if (response.failureCount > 0) {
+      const failedTokens = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          failedTokens.push(tokens[idx]);
+        }
+      });
+      console.error('List of tokens that caused failure: ', failedTokens);
+    }
+
+    console.log(response.successCount + ' messages were sent successfully');
+    return res.send('Notification sent successfully');
+  } catch (err) {
+    console.error('Failed to send notification:', err);
+    return res.status(500).send('Internal Server Error');
+  }
+});
+
+/////////////////////////////////////////////////////////////////////////
 
 
 app.use((req, res, next) => {
