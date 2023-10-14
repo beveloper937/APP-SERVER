@@ -633,6 +633,62 @@ app.post('/user/calendar', async (req, res) => {
     }
 });
 
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/recap', async (req, res) => {
+  try {
+    const { USER_ID } = req.body;
+
+    // 1. 가장 높은 Rate를 가진 Title 3개를 가져옵니다.
+    const [topRatedTitles] = await sequelize.query(`
+      SELECT Title FROM User_habit 
+      WHERE USER_ID = ? 
+      ORDER BY Rate DESC 
+      LIMIT 3
+    `, { replacements: [USER_ID] });
+
+    // 2. (EndTime - StartTime) * Success가 가장 높은 순서대로 Title 3개를 가져옵니다.
+    const [topDurationTitles] = await sequelize.query(`
+      SELECT Title FROM User_habit 
+      WHERE USER_ID = ? 
+      ORDER BY (EndTime - StartTime) * Success DESC 
+      LIMIT 3
+    `, { replacements: [USER_ID] });
+
+    // 3. 가장 많이 Success한 순서대로 Title 3개를 가져옵니다.
+    const [topSuccessTitles] = await sequelize.query(`
+      SELECT Title FROM User_habit 
+      WHERE USER_ID = ? 
+      ORDER BY Success DESC 
+      LIMIT 3
+    `, { replacements: [USER_ID] });
+
+    // 4. User_habit 테이블에서 USER_ID에 연결된 HABIT_ID 개수와 
+    // 모든 HABIT_ID 개수 / 모든 USER_ID 개수의 결과값을 가져옵니다.
+    const [[userHabitCount]] = await sequelize.query(`
+      SELECT COUNT(HABIT_ID) as Count FROM User_habit 
+      WHERE USER_ID = ?
+    `, { replacements: [USER_ID] });
+
+    const [[avgHabitPerUser]] = await sequelize.query(`
+      SELECT (COUNT(HABIT_ID) / COUNT(DISTINCT USER_ID)) as Avg FROM User_habit
+    `);
+
+    res.json({
+      topRatedTitles,
+      topDurationTitles,
+      topSuccessTitles,
+      userHabitCount,
+      avgHabitPerUser
+    });
+  } catch (err) {
+    console.error('Failed to retrieve data:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/habit/delete', (req, res) => {    //습관삭제 기능
