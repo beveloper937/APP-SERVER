@@ -1,5 +1,6 @@
 const { Tag, User_tag } = require('./models');
 const express = require('express');
+const nunjucks = require('nunjucks');
 const path = require('path');
 const morgan = require('morgan');
 const mecab = require('mecab-ya');
@@ -8,6 +9,14 @@ var admin = require('firebase-admin');
 const { sequelize } = require('./models');
 
 const app = express();
+
+nunjucks.configure('views', {
+   autoescape: true,
+   express: app
+})
+
+app.set('view engine', 'njk');
+
 process.env.TZ = 'Asia/Seoul';
 app.set('port', process.env.PORT || 10000);
 
@@ -26,6 +35,30 @@ admin.initializeApp({
 });
 
 ////////////////////////////////////////////////////////////////////////
+
+function getDayFieldPrefix(currentDay) {
+  switch(currentDay) {
+    case 0: return 'Sun';
+    case 1: return 'Mon';
+    case 2: return 'Tue';
+    case 3: return 'Wed';
+    case 4: return 'Thu';
+    case 5: return 'Fri';
+    case 6: return 'Sat';
+    default: throw new Error('Invalid day');
+  }
+}
+
+////////////////////////////////////////////////////////////////////////
+
+
+app.get('/', (req, res) => {
+    res.render('index');  // `views` 폴더 내의 `index.njk` 파일을 렌더링
+});
+
+
+////////////////////////////////////////////////////////////////////////
+
 
 //알림 스케줄(1분마다 스케줄)
 schedule.scheduleJob('*/1 * * * *', async function () {	
@@ -176,7 +209,7 @@ schedule.scheduleJob('*/10 * * * * *', async function (){
   try {
     const currentDay = new Date().getDay();  // 0: 일요일, 1: 월요일, ..., 6: 토요일
     const currentDayStr = ['일', '월', '화', '수', '목', '금', '토'][currentDay]; // Convert number to string (or use your own string)
-    
+    const dayPrefix = getDayFieldPrefix(currentDay);
 
      // Find all users that should update their daily habit
     const [usersHabits] = await sequelize.query(`
@@ -190,6 +223,17 @@ schedule.scheduleJob('*/10 * * * * *', async function (){
     for (const { USER_ID, dailySum, totalHabits } of usersHabits) {
     
       const dailySumNumber = Number(dailySum);
+      // Field to update in Week_Habit based on the result
+      const updateField = dailySumNumber === totalHabits ? `${dayPrefix}_S` : `${dayPrefix}_F`;
+
+      // Update Week_Habit table
+      await sequelize.query(`
+        UPDATE Habit_Week 
+        SET ${updateField} = ${updateField} + 1
+        WHERE USER_ID = :userId
+      `, { replacements: { userId: USER_ID } });
+
+
       if(dailySumNumber === totalHabits) {  // If all Daily are 1
 	// Increment MyPerfectDay and MyRunningPerfectDay
         await sequelize.query(`
@@ -234,10 +278,10 @@ schedule.scheduleJob('*/10 * * * * *', async function (){
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user', (req, res) => {	//유저 생성
-    const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token } = req.body;
-    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?)`;
+    const { USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, Token } = req.body;
+    const query = `INSERT INTO User (USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, Token) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)`;
 
-    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, TreeStatus, Token] })
+    sequelize.query(query, { replacements: [USER_Name, USER_Email, USER_Password, AccessDate, AccumulateDate, Token] })
         .then(() => {
             const selectQuery = `SELECT LAST_INSERT_ID() as USER_ID`;
             return sequelize.query(selectQuery, { type: sequelize.QueryTypes.SELECT });
@@ -372,6 +416,20 @@ app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
       if (isCancel == 1) {
         // 취소 로직
         const [[{ Daily }]] = await sequelize.query(`SELECT Daily FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
+	  
+	  if (Daily == 1) {  // 성공 취소할 때, Level 로직
+          const [[{ CurrentEXP, Level, NextEXP }]] = await sequelize.query(`SELECT CurrentEXP, Level, NextEXP FROM User WHERE USER_ID = ?`, { replacements: [USER_ID], transaction: t });
+          let newEXP = CurrentEXP - 50;
+          let newLevel = Level;
+          if (newEXP < 0 && newLevel > 1) {
+            newLevel--;
+            newEXP += 100 * newLevel;
+          } else if (newEXP < 0){
+	    newEXP = 0;
+	  }
+          let newNextEXP = 100 * newLevel; 
+          await sequelize.query(`UPDATE User SET CurrentEXP = ?, Level = ?, NextEXP = ? WHERE USER_ID = ?`, { replacements: [newEXP, newLevel, newNextEXP, USER_ID], transaction: t });
+        }
 
         await sequelize.query(`
           UPDATE User_habit
@@ -392,6 +450,19 @@ app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
             WHERE TAG_ID = ?`, { replacements: [TAG_ID], transaction: t });
        }
       } else {
+
+	  if (isSuccess == 1) {	//성공했을때, Level 로직
+          const [[{ CurrentEXP, Level, NextEXP }]] = await sequelize.query(`SELECT CurrentEXP, Level, NextEXP FROM User WHERE USER_ID = ?`, { replacements: [USER_ID], transaction: t });
+          let newEXP = CurrentEXP + 50;
+          let newLevel = Level;
+          if (newEXP >= NextEXP) {
+            newLevel++;
+            newEXP -= NextEXP;
+          }
+          let newNextEXP = 100 * newLevel;
+          await sequelize.query(`UPDATE User SET CurrentEXP = ?, Level = ?, NextEXP = ? WHERE USER_ID = ?`, { replacements: [newEXP, newLevel, newNextEXP, USER_ID], transaction: t });
+        }
+
 	// 업데이트 로직
         await sequelize.query(`UPDATE User_habit SET BB_Daily = B_Daily, B_Daily = Daily WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
 
@@ -691,6 +762,51 @@ app.post('/user/recap', async (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////
 
+app.post('/set/tag', async (req, res) => {
+  try {
+    const tagName = req.body.tagName;
+    if (!tagName) {
+      return res.status(400).send('Tag name is required');
+    }
+    
+    // 모든 Select 필드를 0으로 초기화
+    await sequelize.query(`
+      UPDATE Tag SET \`Select\` = 0
+    `);
+    
+    // 입력받은 태그의 Select를 1로 설정
+    await sequelize.query(`
+      UPDATE Tag SET \`Select\` = 1 WHERE Name = :tagName
+    `, { replacements: { tagName } });
+
+    res.send('Selected tag updated successfully.');
+  } catch (err) {
+    console.error('Error setting selected tag:', err);
+    res.status(500).send('Server error');
+  }
+});
+
+////////////////////////////////////////////////////////////////////////
+
+app.get('/get/tag', async (req, res) => {
+  try {
+    const [tags] = await sequelize.query(`
+      SELECT Name, USER_COUNT, Success_Per FROM Tag WHERE \`Select\` = 1
+    `);
+
+    if (tags.length === 0) {
+      return res.status(404).send('No selected tag found');
+    }
+
+    res.json(tags[0]);
+  } catch (err) {
+    console.error('Error fetching selected tag:', err);
+    res.status(500).send('Server error');
+  }
+});
+
+////////////////////////////////////////////////////////////////////////
+
 app.post('/user/habit/delete', (req, res) => {    //습관삭제 기능
   const { USER_ID, HABIT_ID } = req.body;
   const query = `DELETE FROM User_habit WHERE USER_ID = ? AND HABIT_ID = ?`;
@@ -769,7 +885,7 @@ app.post('/user/fol', (req, res) => {   //친구 추가,삭제 기능
 
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
+  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess, Level, CurrentEXP, NextEXP FROM User_habit WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {

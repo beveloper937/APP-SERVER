@@ -41,6 +41,10 @@ class Tag extends Sequelize.Model {
 	        type: Sequelize.INTEGER.UNSIGNED,
 		allowNull: true
 	      },
+	      Select: {
+		type: Sequelize.BOOLEAN,
+		defaultValue: false
+	      }
         },{
             sequelize,
             timestamps: false,

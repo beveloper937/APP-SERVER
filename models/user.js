@@ -49,14 +49,22 @@ class User extends Sequelize.Model {
 		type: Sequelize.FLOAT,
 		defaultValue: 0
 	      },
-              TreeStatus: {
+              Level: {
                 type: Sequelize.INTEGER.UNSIGNED,
-                allowNull: false
-             },
-	     Token: {
+                defaultValue: 1
+              },
+	      CurrentEXP: {
+		type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 0
+	      },
+	      NextEXP: {
+		type: Sequelize.INTEGER.UNSIGNED,
+		defaultValue: 100
+	      },
+	      Token: {
 		type: Sequelize.STRING,
 		allowNull: false
-	     }
+	      }
         },{
             sequelize,
             timestamps: false,
