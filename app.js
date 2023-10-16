@@ -713,7 +713,7 @@ app.post('/user/recap', async (req, res) => {
 
     // 1. 가장 높은 Rate를 가진 Title 3개를 가져옵니다.
     const [topRatedTitles] = await sequelize.query(`
-      SELECT Title FROM User_habit 
+      SELECT Title, Rate FROM User_habit 
       WHERE USER_ID = ? 
       ORDER BY Rate DESC 
       LIMIT 3
@@ -721,7 +721,7 @@ app.post('/user/recap', async (req, res) => {
 
     // 2. (EndTime - StartTime) * Success가 가장 높은 순서대로 Title 3개를 가져옵니다.
     const [topDurationTitles] = await sequelize.query(`
-      SELECT Title FROM User_habit 
+      SELECT Title, (EndTime - StartTime) * Success AS Duration FROM User_habit 
       WHERE USER_ID = ? 
       ORDER BY (EndTime - StartTime) * Success DESC 
       LIMIT 3
@@ -729,7 +729,7 @@ app.post('/user/recap', async (req, res) => {
 
     // 3. 가장 많이 Success한 순서대로 Title 3개를 가져옵니다.
     const [topSuccessTitles] = await sequelize.query(`
-      SELECT Title FROM User_habit 
+      SELECT Title, Success FROM User_habit 
       WHERE USER_ID = ? 
       ORDER BY Success DESC 
       LIMIT 3
@@ -885,7 +885,23 @@ app.post('/user/fol', (req, res) => {   //친구 추가,삭제 기능
 
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess, Level, CurrentEXP, NextEXP FROM User_habit WHERE USER_ID = ?`;
+  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
+
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
+    .then((results) => {
+      res.json(results);
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(504).send('Internal Server Error');
+    });
+})
+
+/////////////////////////////////////////////////////////////////////////
+
+app.get('/user/level', (req, res) => {   //사용자 레벨 가져오기
+  const { USER_ID } = req.query;
+  const query = `SELECT Level, CurrentEXP, NextEXP FROM User WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
