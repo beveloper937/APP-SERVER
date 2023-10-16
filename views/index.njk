@@ -8,10 +8,13 @@
 <body>
     <h1>Select a Tag</h1>
     <form action="/set/tag" method="post">
-        <label for="tagName">Tag Name: </label>
+        <label for="tagName">태그 이름: </label>
         <input type="text" id="tagName" name="tagName" required>
+        <br> <!-- 줄바꿈을 위한 태그 -->
+        <label for="targetSuccess">목표 성공률: </label>
+        <input type="number" id="targetSuccess" name="targetSuccess" required min="0" max="100">
+        <br> <!-- 줄바꿈을 위한 태그 -->
         <button type="submit">Set Tag</button>
     </form>
 </body>
 </html>
-

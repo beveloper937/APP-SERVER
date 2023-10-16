@@ -765,21 +765,27 @@ app.post('/user/recap', async (req, res) => {
 app.post('/set/tag', async (req, res) => {
   try {
     const tagName = req.body.tagName;
+    const targetSuccess = req.body.targetSuccess; // 목표 성공률 값을 받아옵니다.
+
     if (!tagName) {
       return res.status(400).send('Tag name is required');
     }
     
+    if (targetSuccess === undefined || isNaN(targetSuccess)) {
+      return res.status(400).send('Valid target success rate is required');
+    }
+
     // 모든 Select 필드를 0으로 초기화
     await sequelize.query(`
       UPDATE Tag SET \`Select\` = 0
     `);
     
-    // 입력받은 태그의 Select를 1로 설정
+    // 입력받은 태그의 Select를 1로 설정하고 Target_Success 값을 업데이트
     await sequelize.query(`
-      UPDATE Tag SET \`Select\` = 1 WHERE Name = :tagName
-    `, { replacements: { tagName } });
+      UPDATE Tag SET \`Select\` = 1, TargetSuccess = :targetSuccess WHERE Name = :tagName
+    `, { replacements: { tagName, targetSuccess } });
 
-    res.send('Selected tag updated successfully.');
+    res.send('Selected tag and target success rate updated successfully.');
   } catch (err) {
     console.error('Error setting selected tag:', err);
     res.status(500).send('Server error');
@@ -791,7 +797,7 @@ app.post('/set/tag', async (req, res) => {
 app.get('/get/tag', async (req, res) => {
   try {
     const [tags] = await sequelize.query(`
-      SELECT Name, USER_COUNT, Success_Per FROM Tag WHERE \`Select\` = 1
+      SELECT Name, USER_COUNT, Success_Per, TargetSuccess FROM Tag WHERE \`Select\` = 1
     `);
 
     if (tags.length === 0) {
