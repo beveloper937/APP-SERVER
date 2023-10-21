@@ -16,8 +16,8 @@ nunjucks.configure('views', {
 })
 
 app.set('view engine', 'njk');
-
 process.env.TZ = 'Asia/Seoul';
+
 app.set('port', process.env.PORT || 10000);
 
 app.use(morgan('dev'));
@@ -49,8 +49,8 @@ function getDayFieldPrefix(currentDay) {
   }
 }
 
-////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////
 
 app.get('/', (req, res) => {
     res.render('index');  // `views` 폴더 내의 `index.njk` 파일을 렌더링
@@ -110,7 +110,7 @@ schedule.scheduleJob('*/1 * * * *', async function () {
 ////////////////////////////////////////////////////////////////////////
 
 //통계 정리 스케줄(1시간마다 스케줄)
-schedule.scheduleJob('*/30 * * * * *', async function (){
+schedule.scheduleJob('0 * * * *', async function (){
   try {
     //Tag의 사용자수 파악
     const [tags] = await sequelize.query(`
@@ -165,7 +165,7 @@ schedule.scheduleJob('*/30 * * * * *', async function (){
 ////////////////////////////////////////////////////////////////////////
 
 //사용자 Rank와 사용자 전체 성공률  정리(00:00분에 스케줄)
-schedule.scheduleJob('*/10 * * * * *', async function (){
+schedule.scheduleJob('0 0 0 * * *', async function (){
   const transaction = await sequelize.transaction();
 
   try {
@@ -205,7 +205,7 @@ schedule.scheduleJob('*/10 * * * * *', async function (){
 ////////////////////////////////////////////////////////////////////////
 
 //사용자 습관 추적(23:59분에 스케줄)
-schedule.scheduleJob('*/10 * * * * *', async function (){
+schedule.scheduleJob('0 50 23 * * *', async function (){
   try {
     const currentDay = new Date().getDay();  // 0: 일요일, 1: 월요일, ..., 6: 토요일
     const currentDayStr = ['일', '월', '화', '수', '목', '금', '토'][currentDay]; // Convert number to string (or use your own string)
@@ -467,9 +467,13 @@ app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
         await sequelize.query(`UPDATE User_habit SET BB_Daily = B_Daily, B_Daily = Daily WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
 
         await sequelize.query(`UPDATE User_habit SET ${isSuccess == 1 ? 'Success' : 'Fail'} = ${isSuccess == 1 ? 'Success' : 'Fail'} + 1, Daily = ${isSuccess}, RunningDay = ${isSuccess == 1 ? 'RunningDay + 1' : '0'} WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [USER_ID, HABIT_ID], transaction: t });
+	
+	const newSuccess = isSuccess == 1 ? Success + 1 : Success; // 현재의 Success 값에 1을 더하거나 그대로 유지
+	const newAccumulate = Accumulate + 1; // 현재의 Accumulate 값에 1을 더함
+	const Rate = (newSuccess / newAccumulate) * 100;
 
-        const Rate = (Success / (Accumulate + 1)) * 100;
-        await sequelize.query(`UPDATE User_habit SET Accumulate = Accumulate + 1, Rate = ? WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [Rate, USER_ID, HABIT_ID], transaction: t });
+	await sequelize.query(`UPDATE User_habit SET Accumulate = ?, Rate = ? WHERE USER_ID = ? AND HABIT_ID = ?`, { replacements: [newAccumulate, Rate, USER_ID, HABIT_ID], transaction: t });
+
 
         const [tags] = await sequelize.query(`SELECT TAG_ID FROM Habit_Tag WHERE HABIT_ID = ?`, { replacements: [HABIT_ID], transaction: t });
         for (const { TAG_ID } of tags) {
@@ -662,10 +666,10 @@ app.post('/habit/user/stats', async (req, res) => {
             WHERE USER_ID = ?
         `, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT });
 
-        // 2. USER_ID에 연결된 User_habit테이블에서 모든 HABIT_ID 찾아서 Title, Rate, 그리고 연관된 TAG의 Success_Per 가져오기
+        // 2. USER_ID에 연결된 User_habit테이블에서 모든 HABIT_ID 찾아서 Title, Rate, 그리고 연관된 TAG의 Success_Per, USER_COUNT 가져오기
         const habits = await sequelize.query(`
              SELECT uh.Title, uh.Rate, 
-	     JSON_ARRAYAGG(JSON_OBJECT('Name', t.Name, 'Success_Per', t.Success_Per)) AS Tags
+	     JSON_ARRAYAGG(JSON_OBJECT('Name', t.Name, 'Success_Per', t.Success_Per, 'USER_COUNT', t.USER_COUNT)) AS Tags
 	     FROM User_habit uh 
 	     LEFT JOIN Habit_Tag ht ON uh.HABIT_ID = ht.HABIT_ID 
 	     LEFT JOIN Tag t ON ht.TAG_ID = t.TAG_ID
@@ -714,23 +718,25 @@ app.post('/user/recap', async (req, res) => {
     // 1. 가장 높은 Rate를 가진 Title 3개를 가져옵니다.
     const [topRatedTitles] = await sequelize.query(`
       SELECT Title, Rate FROM User_habit 
-      WHERE USER_ID = ? 
+      WHERE USER_ID = ? AND Schedule = 0
       ORDER BY Rate DESC 
       LIMIT 3
     `, { replacements: [USER_ID] });
 
     // 2. (EndTime - StartTime) * Success가 가장 높은 순서대로 Title 3개를 가져옵니다.
     const [topDurationTitles] = await sequelize.query(`
-      SELECT Title, (EndTime - StartTime) * Success AS Duration FROM User_habit 
-      WHERE USER_ID = ? 
-      ORDER BY (EndTime - StartTime) * Success DESC 
+      SELECT Title,
+             (HOUR(EndTime) * 60 + MINUTE(EndTime) - (HOUR(StartTime) * 60 + MINUTE(StartTime))) * Success AS Duration
+      FROM User_habit 
+      WHERE USER_ID = ? AND Schedule = 0
+      ORDER BY (HOUR(EndTime) * 60 + MINUTE(EndTime) - (HOUR(StartTime) * 60 + MINUTE(StartTime))) * Success DESC 
       LIMIT 3
     `, { replacements: [USER_ID] });
 
     // 3. 가장 많이 Success한 순서대로 Title 3개를 가져옵니다.
     const [topSuccessTitles] = await sequelize.query(`
       SELECT Title, Success FROM User_habit 
-      WHERE USER_ID = ? 
+      WHERE USER_ID = ? AND Schedule = 0
       ORDER BY Success DESC 
       LIMIT 3
     `, { replacements: [USER_ID] });
@@ -739,19 +745,46 @@ app.post('/user/recap', async (req, res) => {
     // 모든 HABIT_ID 개수 / 모든 USER_ID 개수의 결과값을 가져옵니다.
     const [[userHabitCount]] = await sequelize.query(`
       SELECT COUNT(HABIT_ID) as Count FROM User_habit 
-      WHERE USER_ID = ?
+      WHERE USER_ID = ? AND Schedule = 0
     `, { replacements: [USER_ID] });
 
     const [[avgHabitPerUser]] = await sequelize.query(`
       SELECT (COUNT(HABIT_ID) / COUNT(DISTINCT USER_ID)) as Avg FROM User_habit
     `);
 
+    // 5. 내가 앱 처음으로 시작한 시간
+    const [[userAccessDate]] = await sequelize.query(`
+      SELECT AccessDate FROM User WHERE USER_ID = ?
+    `, { replacements: [USER_ID] });
+    const hoursSinceAccess = (new Date() - new Date(userAccessDate.AccessDate)) / (1000 * 60 * 60) + 9;
+
+    // 6. 총 시간
+    const [[totalDuration]] = await sequelize.query(`
+      SELECT SUM((HOUR(EndTime) * 60 + MINUTE(EndTime) - (HOUR(StartTime) * 60 + MINUTE(StartTime))) * Success) AS TotalDuration 
+      FROM User_habit WHERE USER_ID = ? AND Schedule = 0
+   `, { replacements: [USER_ID] });
+
+   // 7. 총 성공률
+   const [[userSuccessRate]] = await sequelize.query(`
+     SELECT MySuccess FROM User WHERE USER_ID = ?
+   `, { replacements: [USER_ID] });
+
+   // 8. 내가 습관 성공한 총 횟수
+   const [[totalSuccessCount]] = await sequelize.query(`
+     SELECT SUM(Success) AS TotalSuccessCount 
+     FROM User_habit WHERE USER_ID = ? AND Schedule = 0
+   `, { replacements: [USER_ID] });
+
     res.json({
       topRatedTitles,
       topDurationTitles,
       topSuccessTitles,
       userHabitCount,
-      avgHabitPerUser
+      avgHabitPerUser,
+      hoursSinceAccess,
+      totalDuration,
+      userSuccessRate,
+      totalSuccessCount
     });
   } catch (err) {
     console.error('Failed to retrieve data:', err);
