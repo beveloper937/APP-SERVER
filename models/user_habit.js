@@ -23,6 +23,13 @@ class UserHabit extends Sequelize.Model {
                 type: Sequelize.INTEGER,
                 allowNull: false
             },
+	    AlarmTime: {
+                type: Sequelize.STRING,
+                allowNull: true,
+                validate: {
+                    is: /^([01]\d|2[0-3]):([0-5]\d)$/ // HH:MM 형식 유효성 검사
+                }
+	    },
             StartTime: {
                 type: Sequelize.STRING,
                 allowNull: true,

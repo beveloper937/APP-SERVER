@@ -74,7 +74,7 @@ schedule.scheduleJob('*/1 * * * *', async function () {
     FROM User_habit AS UH
     INNER JOIN User AS U ON UH.USER_ID = U.USER_ID
     WHERE (UH.Day LIKE CONCAT('%', ?, '%') OR UH.Day = ?) 
-    AND UH.StartTime = ?
+    AND UH.AlarmTime = ?
   `;
 
   try {
@@ -330,14 +330,14 @@ app.post('/login', (req, res) => {    //로그인 기능
 
 
 app.post('/user/habit', (req, res) => {    //습관 추가
-    const { USER_ID, Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
+    const { USER_ID, Title, Schedule, Color, AlarmTime, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, TargetDate, TargetSuccess } = req.body;
     console.log('Received JSON data:', req.body);
 
     const query = `
         INSERT INTO User_habit (
-            Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
+            Title, Schedule, Color, AlarmTime, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, Rate, TargetDate, TargetSuccess, USER_ID
         ) 
-        VALUES (?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)
     `;
     
     const Rate = (Success / Accumulate) * 100;
@@ -354,7 +354,7 @@ app.post('/user/habit', (req, res) => {    //습관 추가
 
         sequelize.query(query, {
             replacements: [
-                Title, Schedule, Color, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, ERate, TargetDate, TargetSuccess, USER_ID
+                Title, Schedule, Color, AlarmTime, StartTime, EndTime, Day, Date, Accumulate, Daily, Success, Fail, ERate, TargetDate, TargetSuccess, USER_ID
             ],
         })
         .then(() => {
@@ -498,6 +498,7 @@ app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
 
 app.post('/user/target', (req, res) => {    //목표 수정 기능
   const { USER_ID, HABIT_ID, TargetDate, TargetSuccess } = req.body;
+  console.log(req.body);
   const query = `UPDATE User_habit SET TargetDate = ?, TargetSuccess = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
 
   sequelize.query(query, { replacements: [TargetDate, TargetSuccess, USER_ID, HABIT_ID] })
@@ -521,7 +522,7 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
   const { USER_ID, HABIT_ID, ...updatedFields } = req.body;
 
   const updateColumns = Object.keys(updatedFields)
-    .filter(col => ['Title', 'Schedule', 'Color', 'StartTime', 'EndTime', 'Day', 'Date', 'Accumulate', 'Daily', 'Success', 'Fail'].includes(col))
+    .filter(col => ['Title', 'Schedule', 'Color', 'AlarmTime', 'StartTime', 'EndTime', 'Day', 'Date', 'Accumulate', 'Daily', 'Success', 'Fail'].includes(col))
     .map(col => {
       if (col === 'Date') {
         return `${col} = STR_TO_DATE(?, '%Y-%m-%d')`;
@@ -756,7 +757,6 @@ app.post('/user/recap', async (req, res) => {
     const [[userAccessDate]] = await sequelize.query(`
       SELECT AccessDate FROM User WHERE USER_ID = ?
     `, { replacements: [USER_ID] });
-    const hoursSinceAccess = (new Date() - new Date(userAccessDate.AccessDate)) / (1000 * 60 * 60) + 9;
 
     // 6. 총 시간
     const [[totalDuration]] = await sequelize.query(`
@@ -781,7 +781,7 @@ app.post('/user/recap', async (req, res) => {
       topSuccessTitles,
       userHabitCount,
       avgHabitPerUser,
-      hoursSinceAccess,
+      userAccessDate,
       totalDuration,
       userSuccessRate,
       totalSuccessCount
