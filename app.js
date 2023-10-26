@@ -497,11 +497,11 @@ app.post('/renewal', async (req, res) => {	//습관 업데이트와 취소
 ////////////////////////////////////////////////////////////////////////
 
 app.post('/user/target', (req, res) => {    //목표 수정 기능
-  const { USER_ID, HABIT_ID, TargetDate, TargetSuccess } = req.body;
+  const { USER_ID, HABIT_ID, TargetDate, TargetSuccess, AlarmTime } = req.body;
   console.log(req.body);
-  const query = `UPDATE User_habit SET TargetDate = ?, TargetSuccess = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
+  const query = `UPDATE User_habit SET TargetDate = ?, TargetSuccess = ?, AlarmTime = ? WHERE USER_ID = ? AND HABIT_ID = ?`;
 
-  sequelize.query(query, { replacements: [TargetDate, TargetSuccess, USER_ID, HABIT_ID] })
+  sequelize.query(query, { replacements: [TargetDate, TargetSuccess, AlarmTime, USER_ID, HABIT_ID] })
     .then(([result]) => {
       const rowsUpdated = result.affectedRows;
       if (rowsUpdated > 0) {
@@ -522,7 +522,7 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
   const { USER_ID, HABIT_ID, ...updatedFields } = req.body;
 
   const updateColumns = Object.keys(updatedFields)
-    .filter(col => ['Title', 'Schedule', 'Color', 'AlarmTime', 'StartTime', 'EndTime', 'Day', 'Date', 'Accumulate', 'Daily', 'Success', 'Fail'].includes(col))
+    .filter(col => ['Title', 'Schedule', 'Color', 'StartTime', 'EndTime', 'Day', 'Date', 'Accumulate', 'Daily', 'Success', 'Fail'].includes(col))
     .map(col => {
       if (col === 'Date') {
         return `${col} = STR_TO_DATE(?, '%Y-%m-%d')`;
@@ -567,7 +567,7 @@ app.post('/user/habit/modify', (req, res) => {    //습관 수정 기능
 
 app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
   const { USER_ID } = req.body;
-  const query = `SELECT Title, TargetSuccess, Rate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Rate >= TargetSuccess`;
+  const query = `SELECT Title, TargetSuccess, Rate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Rate >= TargetSuccess AND TargetDate <= CURDATE() AND Schedule = 0`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
@@ -589,6 +589,34 @@ app.post('/user/habit/success', (req, res) => {    //성공습관 불러오기
       res.status(500).send('Internal Server Error');
     });
 });
+
+////////////////////////////////////////////////////////////////////////
+
+app.post('/user/habit/fail', (req, res) => {    //실패습관 불러오기
+  const { USER_ID } = req.body;
+  const query = `SELECT Title, TargetSuccess, Rate, Date as HabitDate FROM User_habit WHERE USER_ID = ? AND Rate < TargetSuccess AND TargetDate <= CURDATE() AND Schedule = 0`;
+
+  sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
+    .then((results) => {
+      const responseData = results.map((result) => {
+        const today = new Date();
+        const { HabitDate, ...rest } = result;
+        const targetDate = new Date(HabitDate);
+        const daysDiff = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
+
+        return {
+          ...rest,
+          DaysSince: daysDiff,
+        };
+      });
+      res.json(responseData);
+    })
+    .catch((err) => {
+      console.error('Failed to execute query:', err);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -924,7 +952,7 @@ app.post('/user/fol', (req, res) => {   //친구 추가,삭제 기능
 
 app.get('/info', (req, res) => {   ///info?USER_ID=<사용자 ID> 이렇게 보내줘야됨
   const { USER_ID } = req.query;
-  const query = `SELECT HABIT_ID, Title, Schedule, Color, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
+  const query = `SELECT HABIT_ID, Title, Schedule, Color, AlarmTime, StartTime, EndTime, Day, TargetDate, TargetSuccess FROM User_habit WHERE USER_ID = ?`;
 
   sequelize.query(query, { replacements: [USER_ID], type: sequelize.QueryTypes.SELECT })
     .then((results) => {
