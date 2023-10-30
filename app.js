@@ -61,56 +61,66 @@ app.get('/', (req, res) => {
 
 
 //알림 스케줄(1분마다 스케줄)
-schedule.scheduleJob('*/1 * * * *', async function () {	
+schedule.scheduleJob('*/1 * * * *', async function () {  
   // 현재 요일과 시간 구하기
   const now = new Date();
-  const option = { weekday: 'short', locale: 'ko-KR' }
-  const currentDay = now.toLocaleDateString('ko-KR', option); // 요일을 문자열로 얻음
-  const currentTime = now.getHours() + ':' + now.getMinutes(); // HH:mm 형식의 현재 시간
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTimeString = `${currentHours}:${currentMinutes < 10 ? '0' : ''}${currentMinutes}`; // HH:mm 형식의 현재 시간
 
-  // MySQL 쿼리: 해당 요일과 시작 시간과 일치하는 레코드 선택
+  // 현재 요일을 문자열로 얻음 (예: 'Mon', 'Tue', ...)
+  const currentDay = now.toLocaleDateString('ko-KR', { weekday: 'short' });
+
+  // MySQL 쿼리: 해당 요일과 알람/시작 시간과 일치하는 레코드 선택
   const query = `
-    SELECT U.Token, UH.Title
+    SELECT U.Token, UH.Title, UH.AlarmTime, UH.StartTime
     FROM User_habit AS UH
     INNER JOIN User AS U ON UH.USER_ID = U.USER_ID
-    WHERE (UH.Day LIKE CONCAT('%', ?, '%') OR UH.Day = ?) 
-    AND UH.AlarmTime = ?
+    WHERE UH.Day LIKE CONCAT('%', ?, '%')
+    AND (UH.AlarmTime = ? OR UH.StartTime = ?)
   `;
 
   try {
-    const [results, metadata] = await sequelize.query(query, { replacements: [currentDay, currentDay, currentTime] });
+    const [results] = await sequelize.query(query, { replacements: [currentDay, currentTimeString, currentTimeString] });
 
     if (results.length === 0) {
       console.log('No matching records found.');
       return;
     }
 
-    for (const result of results) {
-      const token = result.Token;
-      const title = result.Title;
+    let messages = [];
 
-      // FCM 메시지 작성
-      const message = {
+    // 각 레코드에 대한 알림 메시지 준비
+    for (const result of results) {
+      let bodyMessage = result.AlarmTime === currentTimeString ? 
+        `${result.Title}을 준비할 시간입니다.` : 
+        `${result.Title}을 시작할 시간입니다.`;
+
+      messages.push({
         data: {
           title: '습관 알림',
-          body: `${title}을 시작할 시간입니다.`,
+          body: bodyMessage,
+          habitTitle: result.Title,
+          // 추가 데이터 필요 시 여기에 포함
         },
-        tokens: [token], // 해당 토큰으로 알림을 전송
-      };
+        token: result.Token,
+      });
+    }
 
-      const response = await admin.messaging().sendMulticast(message);
-      console.log('Successfully sent message:', response);
+    // 메시지 전송
+    if (messages.length > 0) {
+      const response = await admin.messaging().sendAll(messages);
+      console.log('Successfully sent messages:', response);
     }
   } catch (error) {
     console.error('Error:', error);
   }
 });
 
-
 ////////////////////////////////////////////////////////////////////////
 
 //통계 정리 스케줄(1시간마다 스케줄)
-schedule.scheduleJob('0 * * * *', async function (){
+schedule.scheduleJob('0 0 0 * * *', async function (){
   try {
     //Tag의 사용자수 파악
     const [tags] = await sequelize.query(`
@@ -165,7 +175,7 @@ schedule.scheduleJob('0 * * * *', async function (){
 ////////////////////////////////////////////////////////////////////////
 
 //사용자 Rank와 사용자 전체 성공률  정리(00:00분에 스케줄)
-schedule.scheduleJob('0 0 0 * * *', async function (){
+schedule.scheduleJob('0 50 23 * * *', async function (){
   const transaction = await sequelize.transaction();
 
   try {
@@ -205,7 +215,7 @@ schedule.scheduleJob('0 0 0 * * *', async function (){
 ////////////////////////////////////////////////////////////////////////
 
 //사용자 습관 추적(23:59분에 스케줄)
-schedule.scheduleJob('0 50 23 * * *', async function (){
+schedule.scheduleJob('0 59 23 * * *', async function (){
   try {
     const currentDay = new Date().getDay();  // 0: 일요일, 1: 월요일, ..., 6: 토요일
     const currentDayStr = ['일', '월', '화', '수', '목', '금', '토'][currentDay]; // Convert number to string (or use your own string)
@@ -1062,7 +1072,7 @@ app.post('/follower/alarm', async (req, res) => {
 
     // FCM Message 문자 여러개 보내기
     const message = {
-      notification: {
+      data: {
         title: '팔로워 알림',
         body: `${USER_NAME} 이 ${Title}을 성공했습니다`
       },
